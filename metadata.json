@@ -1,0 +1,6 @@
+{
+  "name": "VetHub",
+  "description": "Comprehensive Clinical Vitality Veterinary Clinic Management System featuring advanced SOAP EHR, scheduling, roles and permissions, and billing splits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

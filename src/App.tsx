@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Calendar, Users, FileText, Pill, CreditCard, Award, BarChart3, Settings as SettingsIcon, LogOut, Search, Bell, HelpCircle, Heart, Plus, Menu, X, PawPrint, Shield, Sparkles
 } from 'lucide-react';
 import { 
-  Staff, Client, Pet, Appointment, MedicalRecord, Invoice, RevenueSplit, Consultation, LabOrder, Role 
+  Staff, Client, Pet, Appointment, MedicalRecord, Invoice, RevenueSplit, Consultation, LabOrder, Role, hasPermission 
 } from './types';
 import { 
   INITIAL_STAFF, INITIAL_CLIENTS, INITIAL_PETS, INITIAL_APPOINTMENTS, 
@@ -42,6 +42,48 @@ export default function App() {
   const [consultationList, setConsultationList] = useState<Consultation[]>(INITIAL_CONSULTATIONS);
   const [labOrderList, setLabOrderList] = useState<LabOrder[]>(INITIAL_LAB_ORDERS);
 
+  // REAL-LIFE VET HOSPITAL OPERATIONS STATES
+  const [treatmentPrices, setTreatmentPrices] = useState([
+    { id: 'tx-1', name: 'Annual Wellness Exam', price: 65.00 },
+    { id: 'tx-2', name: 'Dental Scale & Polish', price: 250.00 },
+    { id: 'tx-3', name: 'Blood Panel & CBC Test', price: 120.00 },
+    { id: 'tx-4', name: 'Emergency Triage & Fluid Charge', price: 180.00 },
+    { id: 'tx-5', name: 'Rabies Core Booster', price: 35.00 },
+    { id: 'tx-6', name: 'Leukemia Assay Assay', price: 50.00 },
+    { id: 'tx-7', name: 'Soft Tissue Surgical Suture', price: 380.00 },
+  ]);
+
+  const [medicationPrices, setMedicationPrices] = useState([
+    { id: 'med-1', name: 'Apoquel 16mg', price: 45.00, stock: 48, minStock: 20 },
+    { id: 'med-2', name: 'Clavamox 250mg', price: 35.00, stock: 18, minStock: 15 },
+    { id: 'med-3', name: 'Heartgard Plus Chewable', price: 68.00, stock: 8, minStock: 10 }, // Below minStock!
+    { id: 'med-4', name: 'Carprofen 100mg Tablet', price: 28.00, stock: 54, minStock: 15 },
+    { id: 'med-5', name: 'Gabapentin 100mg Capsules', price: 22.00, stock: 11, minStock: 10 },
+  ]);
+
+  const [overnightTasks, setOvernightTasks] = useState([
+    { id: 't-1', petId: 'pet-1', task: 'Administer Carprofen 100mg Tablet', assignedTo: 'staff-tech-1', time: '08:00 PM', done: false },
+    { id: 't-2', petId: 'pet-1', task: 'Check vitals and temperature', assignedTo: 'staff-tech-1', time: '10:00 PM', done: true },
+    { id: 't-3', petId: 'pet-2', task: 'Pre-surgery fasting verification check', assignedTo: 'staff-tech-1', time: '06:00 AM', done: false },
+    { id: 't-4', petId: 'pet-3', task: 'Administer IV hydrating fluids', assignedTo: 'staff-tech-1', time: '12:00 AM', done: false },
+  ]);
+
+  const [notifications, setNotifications] = useState([
+    { id: 'n-1', staffId: 'staff-dvm-1', message: 'Staff Alexander notified: Cooper needs inpatient surgery setup', date: 'Just now', read: false },
+    { id: 'n-2', staffId: 'staff-tech-1', message: 'In-clinic treatment ordered for Luna: Feline exam & hydration', date: '5 mins ago', read: false }
+  ]);
+
+  const [supplierOrders, setSupplierOrders] = useState([
+    { id: 'so-1', supplier: 'Zoetis Vet Supply Global', drugName: 'Apoquel 16mg', qty: 50, status: 'Completed', date: '2026-05-10', cost: 1250.00 },
+    { id: 'so-2', supplier: 'Boehringer Ingelheim LLC', drugName: 'Heartgard Plus Chewable', qty: 100, status: 'Pending Approval', date: '2026-05-20', cost: 4200.00 }
+  ]);
+
+  const [clinicHours, setClinicHours] = useState('08:00 AM - 08:00 PM');
+  const [promotions, setPromotions] = useState([
+    { id: 'p-1', name: 'Autumn Vaccine Drive Discount', description: '20% off Rabies & DHPP combos during September', code: 'FALLVACS20', active: true },
+    { id: 'p-2', name: 'Dental Awareness Month Drive', description: 'Scale & polish includes complimentary dental kit', code: 'DENTALSMILE', active: true },
+  ]);
+
   // Authentication & session state
   const [loggedInStaff, setLoggedInStaff] = useState<Staff | null>(null);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'patients' | 'appointments' | 'records' | 'pharmacy' | 'staff' | 'billing'>('dashboard');
@@ -57,10 +99,27 @@ export default function App() {
   // AUTHENTICATION HANDLERS
   const handleLogin = (staff: Staff) => {
     setLoggedInStaff(staff);
-    // Reset view focus upon signing in
-    setCurrentTab('dashboard');
     setEditingAptId(null);
     setSelectedRecordToEdit(null);
+    
+    // Check first permitted tab based on permissions
+    if (hasPermission(staff, 'DASHBOARD_ACCESS')) {
+      setCurrentTab('dashboard');
+    } else if (hasPermission(staff, 'APPOINTMENTS_VIEW')) {
+      setCurrentTab('appointments');
+    } else if (hasPermission(staff, 'PATIENTS_VIEW')) {
+      setCurrentTab('patients');
+    } else if (hasPermission(staff, 'SOAP_RECORDS_EDIT')) {
+      setCurrentTab('records');
+    } else if (hasPermission(staff, 'PHARMACY_Dispense')) {
+      setCurrentTab('pharmacy');
+    } else if (hasPermission(staff, 'BILLING_INVOICE')) {
+      setCurrentTab('billing');
+    } else if (hasPermission(staff, 'STAFF_PERMISSIONS_EDIT')) {
+      setCurrentTab('staff');
+    } else {
+      setCurrentTab('dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -93,6 +152,13 @@ export default function App() {
 
   const handleUpdateClient = (updatedClient: Client) => {
     setClientList(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+
+  const handleUpdateStaff = (updatedStaff: Staff) => {
+    setStaffList(prev => prev.map(s => s.id === updatedStaff.id ? updatedStaff : s));
+    if (loggedInStaff && loggedInStaff.id === updatedStaff.id) {
+      setLoggedInStaff(updatedStaff);
+    }
   };
 
   // CLINICAL LABORATORY WORKFLOWS
@@ -219,8 +285,17 @@ export default function App() {
             allStaff={staffList}
             consultations={consultationList}
             labOrders={labOrderList}
+            notifications={notifications}
+            overnightTasks={overnightTasks}
+            treatmentPrices={treatmentPrices}
+            medicationPrices={medicationPrices}
             onOpenSoapNote={handleOpenSoapNote}
             onSendConsultation={handleAddConsultation}
+            onChangeNotifications={setNotifications}
+            onChangeOvernightTasks={setOvernightTasks}
+            onChangePets={setPetList}
+            onChangeAppointments={setAppointmentList}
+            onChangeInvoices={setInvoiceList}
           />
         );
 
@@ -234,10 +309,25 @@ export default function App() {
             invoices={invoiceList}
             splits={splitList}
             allStaff={staffList}
+            treatmentPrices={treatmentPrices}
+            medicationPrices={medicationPrices}
+            overnightTasks={overnightTasks}
+            notifications={notifications}
+            supplierOrders={supplierOrders}
+            clinicHours={clinicHours}
+            promotions={promotions}
             onApproveSplit={handleApproveSplit}
             onPaySplit={handlePaySplit}
             currentStaff={loggedInStaff || undefined}
             onNavigateTab={(tab) => setCurrentTab(tab)}
+            onChangeTreatmentPrices={setTreatmentPrices}
+            onChangeMedicationPrices={setMedicationPrices}
+            onChangeSupplierOrders={setSupplierOrders}
+            onChangeClinicHours={setClinicHours}
+            onChangePromotions={setPromotions}
+            onChangeStaff={setStaffList}
+            onChangeOvernightTasks={setOvernightTasks}
+            onChangePets={setPetList}
           />
         );
 
@@ -249,9 +339,15 @@ export default function App() {
             pets={petList}
             clients={clientList}
             allStaff={staffList}
+            invoices={invoiceList}
             onAddNewAppointment={handleCreateAppointment}
             onUpdatePetStatus={handleUpdatePetStatus}
             onGenerateInvoice={handleGenerateInvoice}
+            onChangeClients={setClientList}
+            onChangePets={setPetList}
+            onChangeAppointments={setAppointmentList}
+            onChangeInvoices={setInvoiceList}
+            onChangeNotifications={setNotifications}
           />
         );
 
@@ -261,7 +357,13 @@ export default function App() {
           <TechDashboard
             labOrders={labOrderList}
             pets={petList}
+            overnightTasks={overnightTasks}
+            allStaff={staffList}
+            notifications={notifications}
             onCompleteLabOrder={handleCompleteLabOrder}
+            onChangeOvernightTasks={setOvernightTasks}
+            onChangePets={setPetList}
+            onChangeNotifications={setNotifications}
           />
         );
 
@@ -287,10 +389,25 @@ export default function App() {
             invoices={invoiceList}
             splits={splitList}
             allStaff={staffList}
+            treatmentPrices={treatmentPrices}
+            medicationPrices={medicationPrices}
+            overnightTasks={overnightTasks}
+            notifications={notifications}
+            supplierOrders={supplierOrders}
+            clinicHours={clinicHours}
+            promotions={promotions}
             onApproveSplit={handleApproveSplit}
             onPaySplit={handlePaySplit}
             currentStaff={loggedInStaff || undefined}
             onNavigateTab={(tab) => setCurrentTab(tab)}
+            onChangeTreatmentPrices={setTreatmentPrices}
+            onChangeMedicationPrices={setMedicationPrices}
+            onChangeSupplierOrders={setSupplierOrders}
+            onChangeClinicHours={setClinicHours}
+            onChangePromotions={setPromotions}
+            onChangeStaff={setStaffList}
+            onChangeOvernightTasks={setOvernightTasks}
+            onChangePets={setPetList}
           />
         );
 
@@ -353,133 +470,147 @@ export default function App() {
 
             {/* Navigation links matching mockup exactly */}
             <nav className="flex flex-col gap-1 overflow-y-auto flex-1 pr-1" id="clinic-sidebar-nav">
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('dashboard');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'dashboard' && !editingAptId
-                    ? 'bg-[#d0e1fb] text-[#54647a] font-bold shadow-2xs'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <LayoutDashboard className="w-4 h-4 shrink-0" />
-                <span className="text-xs">Dashboard</span>
-              </button>
+              {hasPermission(loggedInStaff, 'DASHBOARD_ACCESS') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('dashboard');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'dashboard' && !editingAptId
+                      ? 'bg-[#d0e1fb] text-[#54647a] font-bold shadow-2xs'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Dashboard</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('appointments');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'appointments' && !editingAptId
-                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                    : 'text-[#3e484d] hover:bg-teal-50/40 hover:text-[#00647c] font-medium'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 shrink-0" />
-                  <span className="text-xs">Appointments</span>
-                </div>
-                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-[1px] rounded-full font-bold">12</span>
-              </button>
+              {hasPermission(loggedInStaff, 'APPOINTMENTS_VIEW') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('appointments');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'appointments' && !editingAptId
+                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                      : 'text-[#3e484d] hover:bg-teal-50/40 hover:text-[#00647c] font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    <span className="text-xs">Appointments</span>
+                  </div>
+                  <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-[1px] rounded-full font-bold">12</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('patients');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'patients' && !editingAptId
-                    ? 'bg-[#d0e1fb] text-[#54647a] font-bold shadow-2xs'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <Users className="w-4 h-4 shrink-0" />
-                <span className="text-xs">Clients &amp; Pets</span>
-              </button>
+              {hasPermission(loggedInStaff, 'PATIENTS_VIEW') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('patients');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'patients' && !editingAptId
+                      ? 'bg-[#d0e1fb] text-[#54647a] font-bold shadow-2xs'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Clients &amp; Pets</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('records');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'records' && !editingAptId
-                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className="text-xs font-sans">Medical Records</span>
-              </button>
+              {hasPermission(loggedInStaff, 'SOAP_RECORDS_EDIT') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('records');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'records' && !editingAptId
+                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span className="text-xs font-sans">Medical Records</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('pharmacy');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'pharmacy' && !editingAptId
-                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Pill className="w-4 h-4 shrink-0" />
-                  <span className="text-xs">Pharmacy</span>
-                </div>
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-              </button>
+              {hasPermission(loggedInStaff, 'PHARMACY_Dispense') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('pharmacy');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'pharmacy' && !editingAptId
+                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Pill className="w-4 h-4 shrink-0" />
+                    <span className="text-xs">Pharmacy</span>
+                  </div>
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('billing');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'billing' && !editingAptId
-                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <CreditCard className="w-4 h-4 shrink-0" />
-                <span className="text-xs">Billing & Invoicing</span>
-              </button>
+              {hasPermission(loggedInStaff, 'BILLING_INVOICE') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('billing');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'billing' && !editingAptId
+                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Billing & Invoicing</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentTab('staff');
-                  setEditingAptId(null);
-                  setMobileSidebarOpen(false);
-                }}
-                className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                  currentTab === 'staff' && !editingAptId
-                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Award className="w-4 h-4 shrink-0" />
-                  <span className="text-xs">Staff</span>
-                </div>
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              </button>
+              {hasPermission(loggedInStaff, 'STAFF_PERMISSIONS_EDIT') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab('staff');
+                    setEditingAptId(null);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                    currentTab === 'staff' && !editingAptId
+                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Award className="w-4 h-4 shrink-0" />
+                    <span className="text-xs">Staff</span>
+                  </div>
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                </button>
+              )}
 
               <button
                 type="button"
@@ -712,6 +843,7 @@ export default function App() {
                         allStaff={staffList}
                         loggedInStaff={loggedInStaff}
                         onAddStaff={(newS) => setStaffList(prev => [...prev, newS])}
+                        onUpdateStaff={handleUpdateStaff}
                       />
                     ) : currentTab === 'billing' ? (
                       <BillingView

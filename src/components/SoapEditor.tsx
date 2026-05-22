@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Sparkles, Mic, Play, Plus, Trash2, CheckCircle, RotateCcw, AlertCircle } from 'lucide-react';
-import { MedicalRecord, Prescription, Staff, Role } from '../types';
+import { MedicalRecord, Prescription, Staff, Role, VaccineRecord } from '../types';
 
 interface SoapEditorProps {
   initialRecord: MedicalRecord | null;
@@ -26,6 +26,8 @@ export default function SoapEditor({
   const [objective, setObjective] = useState(initialRecord?.soap.objective || '');
   const [assessment, setAssessment] = useState(initialRecord?.soap.assessment || '');
   const [plan, setPlan] = useState(initialRecord?.soap.plan || '');
+  const [careInstructions, setCareInstructions] = useState(initialRecord?.soap.careInstructions || 'Follow outpatient instruction sheet; monitor site for swelling or redness.');
+  const [restRestrictions, setRestRestrictions] = useState(initialRecord?.soap.restRestrictions || 'Restricted indoor environment; no rigorous play or external running for 7 days.');
   
   const [prescriptions, setPrescriptions] = useState<Prescription[]>(initialRecord?.prescriptions || []);
   const [procedureTeam, setProcedureTeam] = useState<string[]>(initialRecord?.procedureTeam || ['staff-dvm-1']);
@@ -39,6 +41,67 @@ export default function SoapEditor({
   const [newDose, setNewDose] = useState('');
   const [newFreq, setNewFreq] = useState('');
   const [newDur, setNewDur] = useState('');
+
+  // New Vaccination state
+  const [vaccinations, setVaccinations] = useState<VaccineRecord[]>(initialRecord?.vaccinations || []);
+  const [newVacName, setNewVacName] = useState('');
+  const [newVacDate, setNewVacDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newVacDueDate, setNewVacDueDate] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [newVacDosage, setNewVacDosage] = useState('1.0 mL');
+  const [newVacStatus, setNewVacStatus] = useState<'Administered' | 'Due' | 'Overdue'>('Administered');
+
+  const handleApplyVacPreset = (presetName: string) => {
+    setNewVacName(presetName);
+    const today = new Date();
+    setNewVacDate(today.toISOString().split('T')[0]);
+    
+    const nextDate = new Date();
+    if (presetName.toLowerCase().includes('3-year')) {
+      nextDate.setFullYear(today.getFullYear() + 3);
+    } else if (presetName.toLowerCase().includes('6-mo') || presetName.toLowerCase().includes('6-month') || presetName.toLowerCase().includes('6-mo')) {
+      nextDate.setMonth(today.getMonth() + 6);
+    } else {
+      nextDate.setFullYear(today.getFullYear() + 1);
+    }
+    setNewVacDueDate(nextDate.toISOString().split('T')[0]);
+    
+    if (presetName.toLowerCase().includes('bordetella')) {
+      setNewVacDosage('0.5 mL');
+    } else {
+      setNewVacDosage('1.0 mL');
+    }
+    setNewVacStatus('Administered');
+  };
+
+  const handleAddVaccine = () => {
+    if (!newVacName) return;
+    const newVac: VaccineRecord = {
+      id: `vac-new-${Date.now()}`,
+      name: newVacName,
+      date: newVacDate,
+      nextDueDate: newVacDueDate,
+      dosage: newVacDosage || '1.0 mL',
+      status: newVacStatus
+    };
+    setVaccinations([...vaccinations, newVac]);
+    
+    // reset form
+    setNewVacName('');
+    const today = new Date();
+    const nextDate = new Date();
+    nextDate.setFullYear(today.getFullYear() + 1);
+    setNewVacDueDate(nextDate.toISOString().split('T')[0]);
+    setNewVacDosage('1.0 mL');
+    setNewVacStatus('Administered');
+  };
+
+  const handleRemoveVaccine = (vacId: string) => {
+    setVaccinations(vaccinations.filter(v => v.id !== vacId));
+  };
 
   const handleAddPrescription = () => {
     if (!newMed) return;
@@ -131,10 +194,14 @@ export default function SoapEditor({
         subjective,
         objective,
         assessment,
-        plan
+        plan,
+        careInstructions,
+        restRestrictions
       },
       procedureTeam,
       prescriptions,
+      vaccinations,
+      treatments: initialRecord?.treatments,
       labOrders: initialRecord?.labOrders || [],
       images: initialRecord?.images || []
     };
@@ -291,6 +358,42 @@ export default function SoapEditor({
               className="w-full text-xs p-3 border border-outline-variant rounded-lg bg-[#f8f9ff]/50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary focus:outline-none transition-all"
             />
           </div>
+
+          {/* Outpatient Care & Rest Restrictions Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <span className="inline-block text-[10px] bg-sky-50 text-sky-800 font-bold px-2 py-0.5 rounded font-mono uppercase">
+                Care Instructions
+              </span>
+              <label className="block text-xs font-bold text-[#0d1c2e]" htmlFor="soap-care">
+                Outpatient Care &amp; Treatment Instructions
+              </label>
+              <textarea
+                id="soap-care"
+                value={careInstructions}
+                onChange={(e) => setCareInstructions(e.target.value)}
+                placeholder="e.g. Flush ears twice daily, administer oral liquid after meals..."
+                rows={3}
+                className="w-full text-xs p-3 border border-outline-variant rounded-lg bg-[#f8f9ff]/50 focus:bg-white focus:ring-4 focus:ring-sky-105/10 focus:border-primary focus:outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-block text-[10px] bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded font-mono uppercase">
+                Activity Limitations
+              </span>
+              <label className="block text-xs font-bold text-[#0d1c2e]" htmlFor="soap-rest">
+                Home Rest &amp; Exercise Restrictions
+              </label>
+              <textarea
+                id="soap-rest"
+                value={restRestrictions}
+                onChange={(e) => setRestRestrictions(e.target.value)}
+                placeholder="e.g. Absolute cage rest; leash walking only for toilet breaks..."
+                rows={3}
+                className="w-full text-xs p-3 border border-outline-variant rounded-lg bg-[#f8f9ff]/50 focus:bg-white focus:ring-4 focus:ring-amber-105/10 focus:border-primary focus:outline-none transition-all"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Prescription Management Module */}
@@ -377,6 +480,137 @@ export default function SoapEditor({
                 title="Add to prescription list"
               >
                 <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 💉 Immunization & Vaccination Boosters Manager */}
+        <div className="border border-[#dce9ff]/80 rounded-xl p-5 bg-sky-50/10">
+          <div className="flex items-center justify-between mb-4 border-b border-sky-100 pb-3 flex-wrap gap-2">
+            <div>
+              <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                💉 Immunization &amp; Vaccine Boosters
+              </h4>
+              <p className="text-[10px] text-slate-500 font-medium">Record vaccine doses administered or due next.</p>
+            </div>
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Presets:</span>
+              {[
+                'Rabies 3-Year Booster',
+                'DHPP Core Vaccine',
+                'Bordetella Intranasal',
+                'Leptospirosis'
+              ].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handleApplyVacPreset(p)}
+                  className="px-2 py-0.5 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/60 rounded text-[9px] font-bold text-sky-850 transition-all cursor-pointer"
+                >
+                  + {p.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {vaccinations.length === 0 ? (
+            <div className="p-3 bg-white rounded-lg text-center text-xs text-slate-400 font-medium border border-dashed border-sky-200/60">
+              No vaccines recorded for this session. Add a booster below if administered.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+              {vaccinations.map((vac) => (
+                <div key={vac.id || vac.name} className="flex items-center justify-between p-3 bg-white border border-[#e6eeff] rounded-lg shadow-3xs">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-800">{vac.name}</h5>
+                    <p className="text-[10px] text-[#545d62] font-semibold mt-0.5">
+                      Dose: <span className="text-slate-800 font-bold">{vac.dosage || '1.0 mL'}</span> • Administered: <span className="text-slate-800 font-bold">{vac.date}</span>
+                    </p>
+                    <p className="text-[9px] text-sky-800 font-bold mt-0.5">Next Due: {vac.nextDueDate}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded font-mono ${
+                      vac.status === 'Administered' ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' :
+                      vac.status === 'Overdue' ? 'text-red-700 bg-red-50 border border-red-100' :
+                      'text-amber-700 bg-amber-50 border border-amber-100'
+                    }`}>
+                      {vac.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVaccine(vac.id)}
+                      className="p-1.5 text-error hover:bg-error-container/25 rounded transition-all cursor-pointer"
+                      title="Remove vaccine"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Vaccine Form */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-sky-100/80">
+            <div className="col-span-2 md:col-span-1">
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Vaccine Name</label>
+              <input
+                type="text"
+                value={newVacName}
+                onChange={(e) => setNewVacName(e.target.value)}
+                placeholder="e.g. Rabies Booster"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Date Administered</label>
+              <input
+                type="date"
+                value={newVacDate}
+                onChange={(e) => setNewVacDate(e.target.value)}
+                className="w-full text-xs p-1.5 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Next Due Date</label>
+              <input
+                type="date"
+                value={newVacDueDate}
+                onChange={(e) => setNewVacDueDate(e.target.value)}
+                className="w-full text-xs p-1.5 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Dosage / Status</label>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={newVacDosage}
+                  onChange={(e) => setNewVacDosage(e.target.value)}
+                  placeholder="1.0 mL"
+                  className="w-16 text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+                />
+                <select
+                  value={newVacStatus}
+                  onChange={(e) => setNewVacStatus(e.target.value as any)}
+                  className="grow text-xs p-1 bg-white border border-[#bdc8ce] rounded-md focus:outline-none"
+                >
+                  <option value="Administered">Administered</option>
+                  <option value="Due">Due</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex items-end justify-end col-span-2 md:col-span-1">
+              <button
+                type="button"
+                onClick={handleAddVaccine}
+                className="w-full p-2 bg-primary text-on-primary rounded-md hover:bg-opacity-90 active:scale-95 transition-all text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer h-9"
+                title="Add to vaccination list"
+              >
+                <Plus className="w-4 h-4" /> Add Vaccine
               </button>
             </div>
           </div>

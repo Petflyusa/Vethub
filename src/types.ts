@@ -22,6 +22,7 @@ export interface Staff {
   active: boolean;
   specialty?: string;
   billingRate?: number;
+  permissions?: string[];
 }
 
 export interface Client {
@@ -43,7 +44,7 @@ export interface Pet {
   age: string; // e.g., "3 years 2 months"
   weight: number; // in kg
   gender: 'Male' | 'Female' | 'Neutered Male' | 'Spayed Female';
-  status: 'Checked In' | 'In Surgery' | 'In Treatment' | 'Discharged';
+  status: 'Checked In' | 'In Surgery' | 'In Treatment' | 'Discharged' | 'Overnight Stay';
   ownerId: string;
   alertAllergies: string[];
   avatar: string;
@@ -59,6 +60,14 @@ export interface Appointment {
   reason: string;
   status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
+  visitType?: 'Phone' | 'Walk-In' | 'Emergency';
+  vitals?: {
+    temp?: string;       // Temperature e.g. "101.5 °F"
+    hr?: string;         // Heart Rate e.g. "90 bpm"
+    rr?: string;         // Respiratory Rate e.g. "20 rpm"
+    bp?: string;         // Blood Pressure e.g. "120/80"
+    vitalsTakenBy?: string; // Tech Staff ID
+  };
 }
 
 export interface SoapNote {
@@ -66,6 +75,8 @@ export interface SoapNote {
   objective: string;
   assessment: string;
   plan: string;
+  careInstructions?: string;     // Outpatient care instructions
+  restRestrictions?: string;     // Home rest / activity limitations
 }
 
 export interface Prescription {
@@ -176,3 +187,74 @@ export interface LabOrder {
   isHighRisk: boolean;
   date: string;
 }
+
+export const getRoleDefaultPermissions = (role: Role): string[] => {
+  switch (role) {
+    case Role.OWNER:
+      return [
+        'DASHBOARD_ACCESS',
+        'APPOINTMENTS_VIEW',
+        'APPOINTMENTS_EDIT',
+        'PATIENTS_VIEW',
+        'PATIENTS_EDIT',
+        'SOAP_RECORDS_EDIT',
+        'PHARMACY_Dispense',
+        'BILLING_INVOICE',
+        'STAFF_PERMISSIONS_EDIT'
+      ];
+    case Role.ADMIN:
+    case Role.MANAGER:
+      return [
+        'DASHBOARD_ACCESS',
+        'APPOINTMENTS_VIEW',
+        'APPOINTMENTS_EDIT',
+        'PATIENTS_VIEW',
+        'PATIENTS_EDIT',
+        'SOAP_RECORDS_EDIT',
+        'PHARMACY_Dispense',
+        'BILLING_INVOICE',
+        'STAFF_PERMISSIONS_EDIT'
+      ];
+    case Role.DVM:
+      return [
+        'DASHBOARD_ACCESS',
+        'APPOINTMENTS_VIEW',
+        'PATIENTS_VIEW',
+        'SOAP_RECORDS_EDIT',
+        'PHARMACY_Dispense'
+      ];
+    case Role.TECH:
+      return [
+        'DASHBOARD_ACCESS',
+        'APPOINTMENTS_VIEW',
+        'PATIENTS_VIEW',
+        'SOAP_RECORDS_EDIT',
+        'PHARMACY_Dispense'
+      ];
+    case Role.RECEPTION:
+      return [
+        'DASHBOARD_ACCESS',
+        'APPOINTMENTS_VIEW',
+        'APPOINTMENTS_EDIT',
+        'PATIENTS_VIEW',
+        'PATIENTS_EDIT',
+        'BILLING_INVOICE'
+      ];
+    case Role.FINANCE:
+      return [
+        'DASHBOARD_ACCESS',
+        'BILLING_INVOICE'
+      ];
+    default:
+      return ['DASHBOARD_ACCESS'];
+  }
+};
+
+export const hasPermission = (staff: Staff | null | undefined, permission: string): boolean => {
+  if (!staff) return false;
+  if (staff.permissions) {
+    return staff.permissions.includes(permission);
+  }
+  return getRoleDefaultPermissions(staff.role).includes(permission);
+};
+

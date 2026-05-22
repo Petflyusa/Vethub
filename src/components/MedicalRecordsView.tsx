@@ -34,7 +34,7 @@ import {
   FileSpreadsheet,
   Search
 } from 'lucide-react';
-import { Staff, Client, Pet, MedicalRecord, Prescription, Treatment, Role, Appointment } from '../types';
+import { Staff, Client, Pet, MedicalRecord, Prescription, Treatment, Role, Appointment, VaccineRecord } from '../types';
 
 interface MedicalRecordsViewProps {
   pets?: Pet[];
@@ -229,6 +229,18 @@ export default function MedicalRecordsView({
   const [txtSearchQuery, setTxtSearchQuery] = useState('');
   const [isTxtDropdownOpen, setIsTxtDropdownOpen] = useState(false);
 
+  // Vaccine Section States
+  const [vaccinations, setVaccinations] = useState<VaccineRecord[]>([]);
+  const [newVacName, setNewVacName] = useState('');
+  const [newVacDate, setNewVacDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newVacDueDate, setNewVacDueDate] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [newVacDosage, setNewVacDosage] = useState('1.0 mL');
+  const [newVacStatus, setNewVacStatus] = useState<'Administered' | 'Due' | 'Overdue'>('Administered');
+
   // 2. AI Assist Voice Drawer Panel States
   const [showVoicePanel, setShowVoicePanel] = useState(false);
   const [isVoiceRecording, setIsVoiceRecording] = useState(true);
@@ -295,6 +307,7 @@ export default function MedicalRecordsView({
       setPlanSummaryText(record.soap?.plan || `Recommended home-care and recovery guidelines.`);
       setPrescriptions(record.prescriptions || []);
       setTreatments(record.treatments || []);
+      setVaccinations(record.vaccinations || []);
       setPatientStatus(record.isComplete ? 'Completed' : 'In Progress');
     } else {
       // Load sensible defaults for other pets
@@ -327,6 +340,24 @@ export default function MedicalRecordsView({
             dateTime: 'Feb 15, 2026'
           }
         ]);
+        setVaccinations([
+          {
+            id: 'vac-max-1',
+            name: 'Rabies 3-Year Booster',
+            date: '2026-02-15',
+            nextDueDate: '2029-02-15',
+            dosage: '1.0 mL',
+            status: 'Administered'
+          },
+          {
+            id: 'vac-max-2',
+            name: 'DHPP Core Vaccine',
+            date: '2026-02-15',
+            nextDueDate: '2027-02-15',
+            dosage: '1.0 mL',
+            status: 'Administered'
+          }
+        ]);
         setPatientStatus('In Progress');
       } else {
         // Load custom initial text based on the appointment reason!
@@ -340,6 +371,7 @@ export default function MedicalRecordsView({
         setPlanSummaryText(`Monitor clinical signs carefully. Follow outpatient guidance and instructions.`);
         setPrescriptions([]);
         setTreatments([]);
+        setVaccinations([]);
         setPatientStatus('In Progress');
       }
     }
@@ -372,6 +404,7 @@ export default function MedicalRecordsView({
       procedureTeam: [loggedInStaff?.id || 'staff-dvm-1'],
       prescriptions: prescriptions,
       treatments: treatments,
+      vaccinations: vaccinations,
       labOrders: [],
       images: []
     };
@@ -1531,6 +1564,182 @@ export default function MedicalRecordsView({
                 />
               </div>
 
+            </section>
+
+            {/* 💉 VACCINATION BOOSTERS Card */}
+            <section className="bg-white border border-[#bdc8ce] rounded-xl p-6 shadow-2xs">
+              <h3 className="text-sm font-extrabold flex items-center gap-2 text-[#00647c] uppercase tracking-wide mb-4">
+                <span className="text-lg">💉</span>
+                Immunization &amp; Vaccine Boosters
+              </h3>
+
+              {/* Vaccine List */}
+              <div className="space-y-3 mb-5">
+                {vaccinations.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-dashed border-[#bdc8ce]/60 rounded-xl text-center text-xs text-slate-400 font-medium">
+                    No active vaccine boosters recorded for this session. Use the presets or form below to catalog a booster.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {vaccinations.map((vac) => (
+                      <div key={vac.id || vac.name} className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl shadow-3xs hover:bg-slate-50/50 transition-colors">
+                        <div>
+                          <strong className="text-[#0d1c2e] text-xs font-bold block">{vac.name}</strong>
+                          <div className="text-[10px] text-slate-500 font-semibold font-mono mt-0.5">
+                            Given: {vac.date} | dose: {vac.dosage || '1.0 mL'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <div className="text-right">
+                            <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded font-mono ${
+                              vac.status === 'Administered' ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' :
+                              vac.status === 'Overdue' ? 'text-red-700 bg-red-50 border border-red-100' :
+                              'text-amber-700 bg-amber-50 border border-amber-100'
+                            }`}>
+                              {vac.status}
+                            </span>
+                            <div className="text-[9px] text-[#00647c] font-semibold mt-0.5 block font-mono">
+                              Due: {vac.nextDueDate}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVaccinations(vaccinations.filter(v => v.id !== vac.id));
+                              addToast(`Removed booster: ${vac.name}`, 'warn');
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all shrink-0 cursor-pointer"
+                            title="Remove booster"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Vaccine Quick Presets */}
+              <div className="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2 font-mono">
+                  Quick-Apply Standard Booster Presets
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { name: 'Rabies Booster', nextY: 3, dose: '1.0 mL' },
+                    { name: 'DHPP Core Vaccine', nextY: 1, dose: '1.0 mL' },
+                    { name: 'Bordetella Oral', nextY: 1, dose: '1.0 mL' },
+                    { name: 'Leptospirosis', nextY: 1, dose: '1.0 mL' }
+                  ].map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setNewVacName(preset.name);
+                        setNewVacDosage(preset.dose);
+                        const today = new Date();
+                        setNewVacDate(today.toISOString().split('T')[0]);
+                        const due = new Date();
+                        due.setFullYear(today.getFullYear() + preset.nextY);
+                        setNewVacDueDate(due.toISOString().split('T')[0]);
+                        setNewVacStatus('Administered');
+                        addToast(`Applied booster preset: ${preset.name}`, 'info');
+                      }}
+                      className="px-2.5 py-1 bg-white hover:bg-sky-50 text-slate-705 hover:text-sky-900 text-[10px] font-bold border border-[#bdc8ce]/60 rounded-lg transition-all cursor-pointer shadow-3xs"
+                    >
+                      + {preset.name.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vaccine Form Fields */}
+              <div className="bg-[#e6eeff]/40 p-3.5 rounded-xl border border-[#d5e3fc] space-y-3">
+                <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-mono">
+                  Log Immunization Dose
+                </div>
+                
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={newVacName}
+                    onChange={(e) => setNewVacName(e.target.value)}
+                    placeholder="Vaccine Name (e.g. Rabies 3-Year)"
+                    className="w-full text-xs p-2 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-sans text-[#0d1c2e]"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Administered</label>
+                      <input
+                        type="date"
+                        value={newVacDate}
+                        onChange={(e) => setNewVacDate(e.target.value)}
+                        className="w-full text-xs p-1.5 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Next Due Date</label>
+                      <input
+                        type="date"
+                        value={newVacDueDate}
+                        onChange={(e) => setNewVacDueDate(e.target.value)}
+                        className="w-full text-xs p-1.5 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Dosage</label>
+                      <input
+                        type="text"
+                        value={newVacDosage}
+                        onChange={(e) => setNewVacDosage(e.target.value)}
+                        placeholder="1.0 mL"
+                        className="w-full text-xs p-2 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Clinical Status</label>
+                      <select 
+                        value={newVacStatus}
+                        onChange={(e) => setNewVacStatus(e.target.value as any)}
+                        className="w-full text-xs p-2 bg-white border border-[#bdc8ce] rounded-lg focus:outline-none"
+                      >
+                        <option value="Administered">Administered</option>
+                        <option value="Due">Due</option>
+                        <option value="Overdue">Overdue</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newVacName.trim()) {
+                      addToast('Please enter a vaccine name.', 'warn');
+                      return;
+                    }
+                    const updatedVac: VaccineRecord = {
+                      id: `vac-${Date.now()}`,
+                      name: newVacName,
+                      date: newVacDate,
+                      nextDueDate: newVacDueDate,
+                      dosage: newVacDosage || '1.0 mL',
+                      status: newVacStatus
+                    };
+                    setVaccinations([...vaccinations, updatedVac]);
+                    addToast(`Recorded administered vaccine: ${newVacName}`, 'success');
+                    setNewVacName('');
+                  }}
+                  className="w-full py-2 bg-[#00647c] hover:bg-[#004e61] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Add Vaccine Booster
+                </button>
+              </div>
             </section>
 
           </div>

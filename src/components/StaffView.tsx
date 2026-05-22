@@ -9,7 +9,7 @@ import {
   MapPin, Printer, ShieldCheck, HelpCircle, FileText, UserPlus, 
   ToggleLeft, ToggleRight, Check, X, Filter, Sparkles 
 } from 'lucide-react';
-import { Staff, Role } from '../types';
+import { Staff, Role, getRoleDefaultPermissions, hasPermission } from '../types';
 
 interface StaffViewProps {
   allStaff: Staff[];
@@ -96,6 +96,42 @@ export default function StaffView({
     const dbStaff = allStaff.filter(db => !initialSeed.some(s => s.name === db.name));
     return [...initialSeed, ...dbStaff];
   });
+
+  // Subview toggles and synchronizations
+  const [activeSubView, setActiveSubView] = useState<'scheduler' | 'permissions'>('scheduler');
+  const [selectedStaffIdPermissions, setSelectedStaffIdPermissions] = useState<string | null>(null);
+
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editStaffEmail, setEditStaffEmail] = useState('');
+  const [editStaffRole, setEditStaffRole] = useState<Role>(Role.TECH);
+  const [editStaffSpecialty, setEditStaffSpecialty] = useState('');
+  const [editStaffBillingRate, setEditStaffBillingRate] = useState(0);
+  const [editStaffPermissions, setEditStaffPermissions] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (allStaff && allStaff.length > 0) {
+      setLocalStaff(prev => {
+        return allStaff.map(db => {
+          const match = prev.find(p => p.id === db.id);
+          return match ? { ...match, ...db } : db;
+        });
+      });
+    }
+  }, [allStaff]);
+
+  React.useEffect(() => {
+    if (selectedStaffIdPermissions) {
+      const match = localStaff.find(s => s.id === selectedStaffIdPermissions);
+      if (match) {
+        setEditStaffName(match.name);
+        setEditStaffEmail(match.email);
+        setEditStaffRole(match.role);
+        setEditStaffSpecialty(match.specialty || '');
+        setEditStaffBillingRate(match.billingRate || 0);
+        setEditStaffPermissions(match.permissions || getRoleDefaultPermissions(match.role));
+      }
+    }
+  }, [selectedStaffIdPermissions, localStaff]);
 
   // Seed shift database matching layout exactly
   const [shifts, setShifts] = useState<Shift[]>([
@@ -319,7 +355,42 @@ export default function StaffView({
 
   return (
     <div className="space-y-6" id="staff-management-view">
-      {/* Top dashboard action bar */}
+      {/* Subview Selector Tabs */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/50 max-w-sm shadow-xs mb-4">
+        <button
+          type="button"
+          onClick={() => setActiveSubView('scheduler')}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSubView === 'scheduler' 
+              ? 'bg-[#00647c] text-white shadow-xs' 
+              : 'text-[#3e484d] hover:bg-slate-50'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Scheduler</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSubView('permissions');
+            if (localStaff.length > 0 && !selectedStaffIdPermissions) {
+              setSelectedStaffIdPermissions(localStaff[0].id);
+            }
+          }}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeSubView === 'permissions' 
+              ? 'bg-[#00647c] text-white shadow-xs' 
+              : 'text-[#3e484d] hover:bg-slate-50'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Permissions</span>
+        </button>
+      </div>
+
+      {activeSubView === 'scheduler' && (
+        <>
+          {/* Top dashboard action bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-outline-variant/40 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           {/* Location Selector */}
@@ -739,6 +810,329 @@ export default function StaffView({
           </button>
         </div>
       </div>
+        </>
+      )}
+
+      {/* ACCESS RULES & DYNAMIC PERMISSIONS CONTROLLER */}
+      {activeSubView === 'permissions' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-xs" id="permissions-manager-root">
+          {/* Left Column: Staff Directory Selection */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4 shadow-sm h-full min-h-[500px]">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <h3 className="font-extrabold text-[#0d1c2e] text-xs uppercase tracking-wider flex items-center gap-2 font-sans">
+                <Users className="w-4 h-4 text-[#00647c]" />
+                <span>Practitioner Directory</span>
+              </h3>
+              <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
+                {localStaff.length} Members
+              </span>
+            </div>
+
+            {/* Directory Staff List Cards */}
+            <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[600px] pr-1">
+              {localStaff.map((st) => (
+                <button
+                  type="button"
+                  key={st.id}
+                  onClick={() => setSelectedStaffIdPermissions(st.id)}
+                  className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                    selectedStaffIdPermissions === st.id
+                      ? 'border-[#00647c] bg-[#00647c]/5 shadow-xs scale-[1.01]'
+                      : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#0d1c2e] text-white flex items-center justify-center font-bold text-xs ring-2 ring-[#00647c]/20">
+                      {st.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-[#0d1c2e] leading-snug">{st.name}</p>
+                      <p className="text-[10px] text-slate-500 font-medium leading-none mt-1">{st.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 font-sans">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold uppercase tracking-wide opacity-90 ${
+                      st.active !== false 
+                        ? 'bg-emerald-50 text-emerald-700' 
+                        : 'bg-rose-50 text-rose-700'
+                    }`}>
+                      {st.active !== false ? 'Active' : 'On Leave'}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400 font-bold">
+                      {(st.permissions || getRoleDefaultPermissions(st.role)).length} rules
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAddStaffOpen(true)}
+              className="mt-auto flex items-center justify-center gap-1.5 w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-lg text-xs font-bold text-[#00647c] transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register New Staff</span>
+            </button>
+          </div>
+
+          {/* Right Column: Detailed Security Profile & Core Toggles */}
+          <div className="lg:col-span-2 space-y-6">
+            {selectedStaffIdPermissions ? (() => {
+              const currentStaffItem = localStaff.find(s => s.id === selectedStaffIdPermissions);
+              if (!currentStaffItem) return null;
+
+              // Helper for checking if custom rules are live vs template rules
+              const roleDefaults = getRoleDefaultPermissions(editStaffRole);
+              const hasCustomRuleOverrides = editStaffPermissions.some(p => !roleDefaults.includes(p)) || roleDefaults.some(p => !editStaffPermissions.includes(p));
+
+              // Toggling singular privilege handler
+              const handleTogglePermissionId = (permId: string) => {
+                if (editStaffPermissions.includes(permId)) {
+                  setEditStaffPermissions(prev => prev.filter(p => p !== permId));
+                } else {
+                  setEditStaffPermissions(prev => [...prev, permId]);
+                }
+              };
+
+              // Revert to role default handler
+              const handleResetToRoleDefaults = () => {
+                setEditStaffPermissions(getRoleDefaultPermissions(editStaffRole));
+                addToast(`Reset ${currentStaffItem.name} permissions to standard ${editStaffRole} template`, 'info');
+              };
+
+              // Saving entire form handler
+              const handleSaveStaffSecurityCredentials = (e: React.FormEvent) => {
+                e.preventDefault();
+                const updatedStaffMember: Staff = {
+                  ...currentStaffItem,
+                  name: editStaffName,
+                  email: editStaffEmail || `${editStaffName.toLowerCase().replace(/\s+/g, '')}@clinic.com`,
+                  role: editStaffRole,
+                  specialty: editStaffSpecialty,
+                  billingRate: Number(editStaffBillingRate) || 0,
+                  permissions: editStaffPermissions,
+                };
+
+                // Save locally first
+                setLocalStaff(prev => prev.map(s => s.id === updatedStaffMember.id ? updatedStaffMember : s));
+                // Call parent callback if configured
+                if (onUpdateStaff) {
+                  onUpdateStaff(updatedStaffMember);
+                }
+                addToast(`Successfully updated credentials and permissions for ${editStaffName}`, 'success');
+              };
+
+              return (
+                <form onSubmit={handleSaveStaffSecurityCredentials} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+                  {/* Executive Header info card */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="font-extrabold text-sm text-[#0d1c2e] font-sans">Manage Accessibility Passports</h3>
+                      <p className="text-xs text-slate-500 mt-1 font-medium">Configure profile coordinates and toggle specific role permissions.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {hasCustomRuleOverrides ? (
+                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200/50 flex items-center gap-1.5 font-sans">
+                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
+                          Custom Override Active
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold bg-slate-50 text-slate-600 px-2.5 py-1 rounded-full border border-slate-150 flex items-center gap-1.5 font-sans">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          Matches Role Defaults
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Profiler properties deck */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Display Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editStaffName}
+                        onChange={(e) => setEditStaffName(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Contact Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={editStaffEmail}
+                        onChange={(e) => setEditStaffEmail(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Core Security Role</label>
+                      <select
+                        value={editStaffRole}
+                        onChange={(e) => {
+                          const newR = e.target.value as Role;
+                          setEditStaffRole(newR);
+                          setEditStaffPermissions(getRoleDefaultPermissions(newR));
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none cursor-pointer font-bold font-sans"
+                      >
+                        {Object.values(Role).map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Specialization</label>
+                        <input
+                          type="text"
+                          value={editStaffSpecialty}
+                          onChange={(e) => setEditStaffSpecialty(e.target.value)}
+                          placeholder="e.g. Surgery"
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Billing Rate ($/hr)</label>
+                        <input
+                          type="number"
+                          value={editStaffBillingRate}
+                          onChange={(e) => setEditStaffBillingRate(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none font-bold font-sans"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Checker list */}
+                  <div className="space-y-3 font-sans">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-extrabold text-xs text-[#0d1c2e] uppercase tracking-wider">Granular Permission Registers</h4>
+                      <button
+                        type="button"
+                        onClick={handleResetToRoleDefaults}
+                        className="text-[10px] font-extrabold text-[#00647c] hover:underline cursor-pointer font-bold"
+                      >
+                        Reset to {editStaffRole} Defaults
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        {
+                          id: 'DASHBOARD_ACCESS',
+                          title: 'Executive Dashboards',
+                          desc: 'Viewing metrics graphs, dynamic charts & financial indicators',
+                        },
+                        {
+                          id: 'APPOINTMENTS_VIEW',
+                          title: 'Read Appointments',
+                          desc: 'Accessing calendars, active schedules, and check-in rows',
+                        },
+                        {
+                          id: 'APPOINTMENTS_EDIT',
+                          title: 'Manage Appointments',
+                          desc: 'Scheduling, rebooking, slot reserves and cancellation locks',
+                        },
+                        {
+                          id: 'PATIENTS_VIEW',
+                          title: 'View Health Records',
+                          desc: 'Browsing pet clinical folders, vaccine charts and owner biodata',
+                        },
+                        {
+                          id: 'PATIENTS_EDIT',
+                          title: 'Register & Edit Profiles',
+                          desc: 'Creating new client accounts, pet cards, and emergency notes',
+                        },
+                        {
+                          id: 'SOAP_RECORDS_EDIT',
+                          title: 'Authorize Clinical Notes',
+                          desc: 'Creating SOAP documentation, diagnostic records, and procedures',
+                        },
+                        {
+                          id: 'PHARMACY_Dispense',
+                          title: 'Pharmacy Dispenser',
+                          desc: 'Dispensing pharmacological inventory and prescription approvals',
+                        },
+                        {
+                          id: 'BILLING_INVOICE',
+                          title: 'Invoicing & Payments',
+                          desc: 'Compiling service prices, printing invoice worksheets, and recording bills',
+                        },
+                        {
+                          id: 'STAFF_PERMISSIONS_EDIT',
+                          title: 'Rosters & Access Rules',
+                          desc: 'Editing active staff shifts, modifying roles, and setting permissions',
+                        },
+                      ].map((perm) => {
+                        const isChecked = editStaffPermissions.includes(perm.id);
+                        return (
+                          <div
+                            key={perm.id}
+                            onClick={() => handleTogglePermissionId(perm.id)}
+                            className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer select-none ${
+                              isChecked
+                                ? 'border-[#00647c]/30 bg-[#00647c]/[0.02] hover:bg-[#00647c]/[0.04]'
+                                : 'border-slate-150 bg-white hover:bg-slate-50/50'
+                            }`}
+                          >
+                            <div className="mt-0.5 font-sans font-bold">
+                              {isChecked ? (
+                                <div className="w-5 h-5 rounded-md bg-[#00647c] text-white flex items-center justify-center shadow-xs">
+                                  <Check className="w-3.5 h-3.5" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded-md border border-slate-300 bg-white" />
+                              )}
+                            </div>
+                            <div className="space-y-0.5 pointer-events-none">
+                              <p className="font-extrabold text-xs text-[#0d1c2e]">{perm.title}</p>
+                              <p className="text-[10px] text-slate-500 leading-normal font-medium">{perm.desc}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Form Trigger Row */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 font-sans">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStaffIdPermissions(null);
+                        setActiveSubView('scheduler');
+                      }}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600 cursor-pointer"
+                    >
+                      Exit Permissions
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-[#00647c] hover:bg-[#007f9d] text-white rounded-lg text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Save Staff Policies</span>
+                    </button>
+                  </div>
+                </form>
+              );
+            })() : (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 space-y-3">
+                <ShieldCheck className="w-12 h-12 stroke-[1.2] text-[#00647c] mx-auto animate-bounce" />
+                <p className="text-xs font-bold text-[#0d1c2e] font-sans">Select a Practitioner</p>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto font-medium">Click any clinician or support team member on the left panel to examine their operational passport, edit details, and modify privilege levels dynamically.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* DIALOG 1: Add staff member */}
       {isAddStaffOpen && (

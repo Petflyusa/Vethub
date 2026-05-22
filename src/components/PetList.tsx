@@ -431,11 +431,15 @@ export default function PetList({
               )}
 
               {/* Vaccine records history */}
-              {record.vaccinations && record.vaccinations.length > 0 && (
-                <div className="border border-[#dce9ff] rounded-lg p-3 bg-sky-50/20">
-                  <span className="text-[10px] font-bold text-sky-850 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-                    💉 Verified Immunizations &amp; Vaccine Boosters
-                  </span>
+              <div className="border border-[#dce9ff] rounded-lg p-3 bg-sky-50/20">
+                <span className="text-[10px] font-bold text-sky-850 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+                  💉 Verified Immunizations &amp; Vaccine Boosters
+                </span>
+                {!record.vaccinations || record.vaccinations.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 italic font-medium mt-1">
+                    No active vaccine boosters logged. Click <strong className="text-primary font-bold">"View / Edit Notes"</strong> below to manage immunizations for this record.
+                  </p>
+                ) : (
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {record.vaccinations.map((vac) => (
                       <div key={vac.id} className="text-xs bg-white border border-[#e6eeff]/70 p-2.5 rounded-lg flex justify-between items-center shadow-3xs">
@@ -460,8 +464,8 @@ export default function PetList({
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Imaging uploads */}
               {record.images.length > 0 && (

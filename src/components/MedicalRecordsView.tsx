@@ -59,6 +59,29 @@ export default function MedicalRecordsView({
   initialSelectedPetId,
   onClearInitialPetId
 }: MedicalRecordsViewProps) {
+
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = React.useState<'Imperial' | 'Metric'>('Imperial');
+  React.useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const formatWeightToUnit = (kgVal: number | undefined): string => {
+    if (!kgVal) return '0.0';
+    if (unitSystem === 'Imperial') {
+      return (kgVal * 2.20462).toFixed(1);
+    } else {
+      return kgVal.toFixed(1);
+    }
+  };
   
   // Find pets and clients for the appointments in Today's Queue
   const appointmentQueue = React.useMemo(() => {
@@ -346,7 +369,7 @@ export default function MedicalRecordsView({
       setTempF(tempMatch ? tempMatch[1] : '101.2');
       setHrBpm(hrMatch ? hrMatch[1] : pet.species === 'Cat' ? '140' : pet.species === 'Rabbit' ? '180' : '88');
       setRrBpm(rrMatch ? rrMatch[1] : pet.species === 'Cat' ? '30' : pet.species === 'Rabbit' ? '45' : '24');
-      setWeightKg(pet.weight?.toString() || '15.0');
+      setWeightKg(formatWeightToUnit(pet.weight));
       
       const bcsMatch = objective.match(/Body\s*Condition\s*Score:\s*([0-9])/i) || record.soap?.assessment?.match(/Body\s*Condition\s*Score\s*([0-9])/i);
       setBcsScore(bcsMatch ? parseInt(bcsMatch[1]) : 5);
@@ -364,7 +387,7 @@ export default function MedicalRecordsView({
         setTempF('101.2');
         setHrBpm('88');
         setRrBpm('24');
-        setWeightKg('32.4');
+        setWeightKg(formatWeightToUnit(32.4));
         setBcsScore(5);
         setAssessmentText('Primary diagnosis: Mild left-sided Otitis Externa. Rule out foreign body or secondary deep ear canal infection.');
         setPlanSummaryText('Avoid swimming or moisture entry in ear canals for 1 week. Re-evaluate if symptoms persist past day 6.');
@@ -413,7 +436,7 @@ export default function MedicalRecordsView({
         setTempF('101.5');
         setHrBpm(pet.species === 'Cat' ? '140' : pet.species === 'Rabbit' ? '180' : '90');
         setRrBpm(pet.species === 'Cat' ? '30' : pet.species === 'Rabbit' ? '45' : '22');
-        setWeightKg(pet.weight?.toString() || '12.4');
+        setWeightKg(formatWeightToUnit(pet.weight));
         setBcsScore(5);
         setAssessmentText(`1. Evaluation of ${apt.reason || 'presenting complaint'}.\n2. Overall general health looks excellent, no visible secondary complications.`);
         setPlanSummaryText(`Monitor clinical signs carefully. Follow outpatient guidance and instructions.`);
@@ -434,7 +457,7 @@ export default function MedicalRecordsView({
     const { pet, appointment } = activeQueueItem;
     
     // Construct objective text to align with saving format
-    const objectiveCompiled = `Weight: ${weightKg} kg. Temp: ${tempF}°F. Heart Rate: ${hrBpm} bpm. Respiratory: ${rrBpm} bpm. Body Condition Score: ${bcsScore}/9.`;
+    const objectiveCompiled = `Weight: ${weightKg} ${unitSystem === 'Imperial' ? 'lb' : 'kg'}. Temp: ${tempF}°F. Heart Rate: ${hrBpm} bpm. Respiratory: ${rrBpm} bpm. Body Condition Score: ${bcsScore}/9.`;
 
     const updatedRecord: MedicalRecord = {
       id: `mr-active-${pet.id}-${Date.now()}`,
@@ -687,7 +710,7 @@ export default function MedicalRecordsView({
   const handleGenerateAndPopulateSoap = () => {
     const petName = activeQueueItem?.pet.name || 'Max';
     const ownerName = activeQueueItem?.client?.name || 'Sarah Johnson';
-    const petWeight = activeQueueItem?.pet.weight?.toString() || '32.4';
+    const petWeight = activeQueueItem?.pet.weight;
     
     setSubjectiveText(
       `${petName} presented today with a history of localized scratching and irritation. Per owner ${ownerName}, activity levels are normal directly within the home, with appetite remaining good.`
@@ -695,7 +718,7 @@ export default function MedicalRecordsView({
     setTempF('101.4');
     setHrBpm(activeQueueItem?.pet.species === 'Cat' ? '135' : activeQueueItem?.pet.species === 'Rabbit' ? '180' : '92');
     setRrBpm(activeQueueItem?.pet.species === 'Cat' ? '28' : activeQueueItem?.pet.species === 'Rabbit' ? '42' : '26');
-    setWeightKg(petWeight);
+    setWeightKg(formatWeightToUnit(petWeight || 32.4));
     setBcsScore(5);
     
     // Update ears/eyes description with simulated AI observation
@@ -989,7 +1012,7 @@ export default function MedicalRecordsView({
 
                 <div className="p-3.5 bg-[#e6eeff] rounded-xl border border-[#bdc8ce]/40 flex flex-col justify-between">
                   <label className="text-[9px] font-black text-[#6e797e] uppercase tracking-wider mb-1 font-mono">
-                    Weight (kg)
+                    Weight ({unitSystem === 'Imperial' ? 'lb' : 'kg'})
                   </label>
                   <input
                     type="text"

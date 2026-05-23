@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, 
   User, Clock, AlertTriangle, Plus, Check, Trash2, X, Filter,
-  Tag, Info, PlusCircle, CheckCircle, HelpCircle, Search
+  Tag, Info, PlusCircle, CheckCircle, HelpCircle, Search, GripVertical
 } from 'lucide-react';
 import { Appointment, Pet, Client, Staff, Role } from '../types';
 
@@ -13,6 +13,7 @@ interface AppointmentsCalendarProps {
   allStaff: Staff[];
   onUpdateAppointment: (updated: Appointment) => void;
   onAddAppointment: (newApp: Appointment) => void;
+  onAddNewPetAndClient?: (pet: Pet, client: Client) => void;
 }
 
 export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
@@ -22,23 +23,40 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   allStaff,
   onUpdateAppointment,
   onAddAppointment,
+  onAddNewPetAndClient,
 }) => {
   // Calendar Navigation State (centered around March 11-17, 2024 to match mock unless user transitions)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     // Default to the week containing May 21, 2026 to align with mock and today's date
-    const d = new Date('2026-05-18'); // May 18, 2026 is Monday
+    const d = new Date('2026-05-18T00:00:00Z'); // May 18, 2026 is Monday UTC
     return d;
   });
 
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }); // Read to capture dynamic updates immediately!
+
   // Sidebar Filter States
   const [selectedDoctors, setSelectedDoctors] = useState<string[]>(() => {
-    const dvms = allStaff.filter(s => s.role === Role.DVM).map(s => s.id);
-    return dvms;
+    return allStaff.map(s => s.id);
   });
   const [selectedReasonCategories, setSelectedReasonCategories] = useState<string[]>([
     'Checkup', 'Vaccination', 'Surgery', 'Dental', 'Emergency'
   ]);
   const [showCancelled, setShowCancelled] = useState(false);
+
+  // Drag and Drop State for Waiting List
+  const [draggedOverSlot, setDraggedOverSlot] = useState<{ dayIdx: number; hourIdx: number } | null>(null);
 
   // Active appointment detail modal state
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -60,6 +78,19 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   const [newCustomReasonDetail, setNewCustomReasonDetail] = useState('');
   const [newNotes, setNewNotes] = useState('');
 
+  // First time visit registration states
+  const [isFirstTimeVisit, setIsFirstTimeVisit] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newPetName, setNewPetName] = useState('');
+  const [newPetSpecies, setNewPetSpecies] = useState<'Dog' | 'Cat' | 'Bird' | 'Rabbit' | 'Exotic'>('Dog');
+  const [newPetBreed, setNewPetBreed] = useState('');
+  const [newPetAge, setNewPetAge] = useState('');
+  const [newPetWeight, setNewPetWeight] = useState(10);
+  const [newPetGender, setNewPetGender] = useState<'Male' | 'Female' | 'Neutered Male' | 'Spayed Female'>('Neutered Male');
+  const [newPetAllergies, setNewPetAllergies] = useState('');
+
   // Search Results computation for pet/client search bar
   const filteredPetsForSearch = useMemo(() => {
     if (!petSearchQuery) return [];
@@ -79,43 +110,99 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
     return allStaff.filter(s => s.role === Role.DVM || s.role === Role.OWNER || s.role === Role.MANAGER);
   }, [allStaff]);
 
-  // Generate 7 days of the selected week
+  // Generate 7 days of the selected week in UTC to avoid any timezone shift discrepancies
   const weekDays = useMemo(() => {
     const days = [];
+    const startUtc = new Date(Date.UTC(
+      currentWeekStart.getUTCFullYear(),
+      currentWeekStart.getUTCMonth(),
+      currentWeekStart.getUTCDate()
+    ));
     for (let i = 0; i < 7; i++) {
-      const day = new Date(currentWeekStart);
-      day.setDate(currentWeekStart.getDate() + i);
+      const day = new Date(startUtc);
+      day.setUTCDate(startUtc.getUTCDate() + i);
       days.push(day);
     }
     return days;
   }, [currentWeekStart]);
 
   const monthYearLabel = useMemo(() => {
-    return currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   }, [currentWeekStart]);
 
   const weekHeaderRangeLabel = useMemo(() => {
-    const start = currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const end = weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const start = currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const end = weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     return `${start} – ${end}`;
   }, [currentWeekStart, weekDays]);
 
-  // Navigate Weeks
+  // Navigate Weeks utilizing UTC to ensure timezone offsets are completely invariant
   const handlePrevWeek = () => {
     const prev = new Date(currentWeekStart);
-    prev.setDate(currentWeekStart.getDate() - 7);
+    prev.setUTCDate(currentWeekStart.getUTCDate() - 7);
     setCurrentWeekStart(prev);
   };
 
   const handleNextWeek = () => {
     const next = new Date(currentWeekStart);
-    next.setDate(currentWeekStart.getDate() + 7);
+    next.setUTCDate(currentWeekStart.getUTCDate() + 7);
     setCurrentWeekStart(next);
   };
 
   const handleGoToToday = () => {
     // Align with mock date week
-    setCurrentWeekStart(new Date('2026-05-18'));
+    setCurrentWeekStart(new Date('2026-05-18T00:00:00Z'));
+  };
+
+  // Drag & drop waiting list pet scheduler
+  const handleDropPet = (e: React.DragEvent, dayIdx: number, hourIdx: number) => {
+    e.preventDefault();
+    const petId = e.dataTransfer.getData('text/plain');
+    if (!petId) return;
+
+    const petObj = pets.find(p => p.id === petId);
+    if (!petObj) return;
+
+    const targetDay = weekDays[dayIdx];
+    const dateStr = targetDay.toISOString().split('T')[0];
+    const hour = 8 + hourIdx;
+    const timeStr = `${String(hour).padStart(2, '0')}:00`;
+
+    // Pick first doctor
+    const dvm = allStaff.find(s => s.role === Role.DVM) || allStaff[0];
+    const dvmId = dvm ? dvm.id : 'staff-1';
+
+    const newAppObj: Appointment = {
+      id: `apt-${Date.now()}`,
+      petId: petId,
+      clientId: petObj.ownerId,
+      staffId: dvmId,
+      dateTime: `${dateStr}T${timeStr}:00Z`,
+      duration: 30, // Default duration
+      reason: 'Checkup', // Default reason
+      status: 'CHECKED_IN',
+      notes: 'Scheduled via drag and drop from clinic waiting list',
+    };
+
+    onAddAppointment(newAppObj);
+
+    // Trigger Notification for Checked In Patient assigned DVM
+    if (typeof window !== 'undefined') {
+      try {
+        const customEvent = new CustomEvent('vet_notification_triggered', {
+          detail: {
+            id: `notif-${Date.now()}`,
+            type: 'Patient Checked In',
+            message: `${petObj.name} has been assigned to ${dvm ? dvm.name : 'DVM'} and scheduled at ${timeStr} on ${dateStr}.`,
+            severity: 'info',
+            timestamp: new Date().toISOString()
+          }
+        });
+        window.dispatchEvent(customEvent);
+      } catch (err) {
+        console.error('Failed to trigger notification event:', err);
+      }
+    }
   };
 
   // Helper: get the category group (Checkup, Vaccination, Surgery, Dental, Emergency)
@@ -200,8 +287,8 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
       if (dateIndex === -1) return null; // Outside current visible week scope
 
-      const hours = appDate.getHours();
-      const minutes = appDate.getMinutes();
+      const hours = appDate.getUTCHours();
+      const minutes = appDate.getUTCMinutes();
       
       // Calculate top position. Base: 08:00 AM. Row is 80px per hour (1.33px per minute).
       const baseHour = 8;
@@ -300,18 +387,67 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
     e.preventDefault();
     const compoundReason = newReason === 'Other' ? newCustomReasonDetail : newReason;
     
-    const petObj = pets.find(p => p.id === newPetId);
-    if (!petObj) return;
+    let finalPetId = newPetId;
+    let finalClientId = '';
+
+    if (isFirstTimeVisit) {
+      if (!newClientName || !newPetName) {
+        alert('Please fill out the required Client Name and Pet Name.');
+        return;
+      }
+
+      const generatedClientId = `client-new-${Date.now()}`;
+      const generatedPetId = `pet-new-${Date.now()}`;
+
+      const createdClient: Client = {
+        id: generatedClientId,
+        name: newClientName,
+        email: newClientEmail || 'no-email@vethub.org',
+        phone: newClientPhone || '555-PRIV',
+        address: 'Springfield Area Resident',
+        joinedDate: new Date().toISOString().split('T')[0],
+        membershipType: 'Standard',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      };
+
+      const createdPet: Pet = {
+        id: generatedPetId,
+        name: newPetName,
+        species: newPetSpecies,
+        breed: newPetBreed || 'Mixed Breed',
+        age: newPetAge || 'Puppy / Kitteh',
+        weight: unitSystem === 'Imperial' ? ((Number(newPetWeight) || 10) / 2.20462) : (Number(newPetWeight) || 10),
+        gender: newPetGender,
+        status: 'Checked In', // Pushed straight in!
+        ownerId: generatedClientId,
+        alertAllergies: newPetAllergies ? newPetAllergies.split(',').map(s => s.trim()) : [],
+        avatar: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=120',
+      };
+
+      if (onAddNewPetAndClient) {
+        onAddNewPetAndClient(createdPet, createdClient);
+      }
+      finalPetId = generatedPetId;
+      finalClientId = generatedClientId;
+    } else {
+      const petObj = pets.find(p => p.id === newPetId);
+      if (!petObj) {
+        alert('Please search and select an active Client & Pet from the database or check First-Time Visit.');
+        return;
+      }
+      finalPetId = newPetId;
+      finalClientId = petObj.ownerId;
+    }
 
     const newAppObj: Appointment = {
       id: `apt-${Date.now()}`,
-      petId: newPetId,
-      clientId: petObj.ownerId,
+      petId: finalPetId,
+      clientId: finalClientId,
       staffId: newStaffId,
       dateTime: `${newDate}T${newTime}:00Z`,
       duration: Number(newDuration),
       reason: compoundReason || 'Routine Checkup',
-      status: 'CONFIRMED',
+      status: 'CHECKED_IN', // Make it active immediately! See: 'CHECKED_IN'
       notes: newNotes,
     };
 
@@ -321,14 +457,24 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
     // Reset inputs
     setNewNotes('');
     setNewCustomReasonDetail('');
+    setIsFirstTimeVisit(false);
+    setNewClientName('');
+    setNewClientEmail('');
+    setNewClientPhone('');
+    setNewPetName('');
+    setNewPetBreed('');
+    setNewPetAge('');
+    setNewPetWeight(10);
+    setNewPetGender('Neutered Male');
+    setNewPetAllergies('');
   };
 
   const getDayFormatted = (day: Date) => {
-    return day.toLocaleDateString('en-US', { day: 'numeric' });
+    return day.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' });
   };
 
   const getDayNameShort = (day: Date) => {
-    return day.toLocaleDateString('en-US', { weekday: 'short' });
+    return day.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
   };
 
   return (
@@ -367,7 +513,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">
             {weekDays.map((day, idx) => {
-              const isTodayStyle = day.toDateString() === new Date().toDateString();
+              const isTodayStyle = day.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
               return (
                 <button
                   key={idx}
@@ -432,40 +578,73 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           </div>
         </div>
 
-        {/* Service types / colors map */}
-        <div>
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Tag className="w-4 h-4 text-primary" />
-            Service Filter
-          </h3>
-          <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-100/80 shadow-3xs">
-            {['Checkup', 'Vaccination', 'Surgery', 'Dental', 'Emergency'].map(cat => {
-              const isChecked = selectedReasonCategories.includes(cat);
-              const colors = getReasonColorClasses(cat);
-              return (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryToggle(cat)}
-                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all cursor-pointer border ${
-                    isChecked 
-                      ? 'bg-slate-50/80 border-slate-200' 
-                      : 'border-transparent opacity-60 hover:opacity-100 hover:bg-slate-50/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 font-semibold text-slate-700">
-                    <span className={`w-2 h-2 rounded-full ${colors.dot} ring-2 ring-white shadow-xs`} />
-                    <span>{cat}</span>
+        {/* Clinic Waiting List */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-2 shrink-0">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
+              Clinic Waiting List ({pets.filter(p => p.status === 'Checked In').length})
+            </h3>
+          </div>
+          
+          <p className="text-[10px] text-slate-400 font-medium mb-3">
+            Drag a patient and drop on a schedule grid cell below to assign a slot instantly when a DVM is available.
+          </p>
+
+          <div className="space-y-2 overflow-y-auto pr-1 flex-1 max-h-[220px] lg:max-h-[280px]" id="waiting-list-container">
+            {pets.filter(p => p.status === 'Checked In').length === 0 ? (
+              <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center bg-white/50">
+                <span className="text-lg block mb-1">🐾</span>
+                <p className="text-[10.5px] font-semibold text-slate-400 leading-normal">
+                  No checked-in patients waiting.
+                </p>
+                <p className="text-[9px] text-slate-350 mt-1">
+                  Change pet status in the Patient List tab to see them here.
+                </p>
+              </div>
+            ) : (
+              pets.filter(p => p.status === 'Checked In').map(pet => {
+                const owner = clients.find(c => c.id === pet.ownerId);
+                return (
+                  <div
+                    key={pet.id}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', pet.id);
+                      e.dataTransfer.effectAllowed = 'copyMove';
+                    }}
+                    className="flex items-center gap-2.5 p-2.5 bg-white border border-slate-150 rounded-xl hover:border-primary/40 hover:shadow-3xs transition-all cursor-grab active:cursor-grabbing group relative"
+                    title="Drag and drop onto calendar grid"
+                  >
+                    <div className="absolute top-1 right-2 opacity-30 group-hover:opacity-75 transition-opacity text-slate-400">
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
+                    <img
+                      src={pet.avatar}
+                      alt={pet.name}
+                      referrerPolicy="no-referrer"
+                      className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-100 shadow-3xs"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-bold text-slate-800 truncate">{pet.name}</span>
+                        <span className="text-[8px] px-1 bg-emerald-50 text-emerald-800 border border-emerald-100/50 rounded font-semibold scale-95 shrink-0">
+                          Waiting
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 truncate mt-0.5 font-medium">
+                        {pet.species} • {pet.breed}
+                      </p>
+                      {owner && (
+                        <p className="text-[8.5px] text-slate-350 font-semibold truncate">
+                          Owner: {owner.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${
-                    isChecked 
-                      ? 'bg-primary border-primary text-white' 
-                      : 'border-slate-200 bg-white'
-                  }`}>
-                    {isChecked && <Check className="w-2.5 h-2.5 stroke-[3.5]" />}
-                  </div>
-                </button>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -526,14 +705,55 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-emerald-55/75 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex items-center gap-1.5 bg-[#e8f5e9] border border-[#a5d6a7] px-3 py-1 rounded-full text-[10px] font-bold text-[#2e7d32] uppercase tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4caf50] animate-pulse" />
               <span>LIVE QUEUE SYNC</span>
             </div>
-            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs">
-              <span className="px-3 py-1 font-semibold bg-white text-primary rounded-lg shadow-3xs border border-slate-150">Week View</span>
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs text-slate-700">
+              <span className="px-3 py-1 font-semibold bg-white text-slate-800 rounded-lg shadow-3xs border border-slate-150">Week View</span>
             </div>
           </div>
+        </div>
+
+        {/* Horizontal Service Filter Bar (Moved to Top) */}
+        <div className="px-6 py-3 bg-slate-50/70 border-b border-slate-150 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 font-bold flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5 text-primary" /> Service Category Filters:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {['Checkup', 'Vaccination', 'Surgery', 'Dental', 'Emergency'].map(cat => {
+                const isChecked = selectedReasonCategories.includes(cat);
+                const colors = getReasonColorClasses(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryToggle(cat)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
+                      isChecked
+                        ? `${colors.bg} ${colors.accent} shadow-3xs text-slate-900 border-solid`
+                        : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
+                    <span>{cat}</span>
+                    {isChecked ? <Check className="w-3 h-3 text-current ml-0.5" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setNewPetId('');
+              setPetSearchQuery('');
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-black text-white hover:bg-slate-800 rounded-lg transition-all text-xs font-bold font-mono tracking-wide active:scale-95 shadow-3xs uppercase"
+          >
+            <Plus className="w-3.5 h-3.5" /> Book Appointment
+          </button>
         </div>
 
         {/* Scrollable Calendar Week Grid Board */}
@@ -545,9 +765,9 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
             <div className="sticky top-0 bg-white/95 backdrop-blur-xs z-20 grid grid-cols-[65px_repeat(7,_1fr)] border-b border-slate-150 shadow-3xs h-18">
               <div className="border-r border-slate-150 bg-slate-50/10" /> {/* Spacer */}
               {weekDays.map((day, idx) => {
-                const isToday = day.toDateString() === new Date().toDateString();
+                const isToday = day.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
                 return (
-                  <div key={idx} className={`text-center py-2 flex flex-col justify-center border-r border-slate-100/50 last:border-r-0 relative ${isToday ? 'bg-primary/[0.01]' : ''}`}>
+                   <div key={idx} className={`text-center py-2 flex flex-col justify-center border-r border-slate-100/50 last:border-r-0 relative ${isToday ? 'bg-primary/[0.01]' : ''}`}>
                     <p className={`text-[10px] uppercase tracking-wider font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>
                       {getDayNameShort(day)}
                     </p>
@@ -569,7 +789,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
             <div className="relative mt-0 z-10 grid grid-cols-[65px_repeat(7,_1fr)]" style={{ height: '800px' }}>
               
               {/* Left-side Hour Indicators (8:00 to 18:00) */}
-              <div className="col-span-1 border-r border-slate-150 bg-white flex flex-col select-none text-[10px] text-slate-405 font-medium divide-y divide-slate-100/50">
+              <div className="col-span-1 border-r border-slate-150 bg-white flex flex-col select-none text-[10px]/[normal] text-slate-400 font-medium divide-y divide-slate-100/50">
                 {Array.from({ length: 11 }).map((_, hourOffset) => {
                   const hourLabel = 8 + hourOffset;
                   const ampm = hourLabel >= 12 ? 'PM' : 'AM';
@@ -586,22 +806,46 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
               {/* Day grid grids background pattern */}
               {Array.from({ length: 7 }).map((_, dayIdx) => (
                 <div key={dayIdx} className="col-span-1 border-r border-slate-100/50 min-h-[800px] relative divide-y divide-slate-100/50 bg-white">
-                  {Array.from({ length: 11 }).map((_, hourIdx) => (
-                    <div 
-                      key={hourIdx} 
-                      className="h-20 border-b border-dashed border-slate-100/60 hover:bg-primary/[0.02]/30 hover:bg-slate-50 transition-all cursor-crosshair"
-                      onClick={() => {
-                        const targetDay = weekDays[dayIdx];
-                        setNewDate(targetDay.toISOString().split('T')[0]);
-                        const hour = 8 + hourIdx;
-                        setNewTime(`${String(hour).padStart(2, '0')}:00`);
-                        setNewPetId('');
-                        setPetSearchQuery('');
-                        setShowAddModal(true);
-                      }}
-                      title="Click directly to log appointment at this day slot"
-                    />
-                  ))}
+                  {Array.from({ length: 11 }).map((_, hourIdx) => {
+                    const isDraggedOver = draggedOverSlot?.dayIdx === dayIdx && draggedOverSlot?.hourIdx === hourIdx;
+                    return (
+                      <div 
+                        key={hourIdx} 
+                        className={`h-20 border-b border-dashed border-slate-100/60 transition-all cursor-crosshair relative ${
+                          isDraggedOver
+                            ? 'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-400 z-10 scale-[0.99] rounded shadow-xs'
+                            : 'hover:bg-primary/[0.02]/30 hover:bg-slate-50'
+                        }`}
+                        onClick={() => {
+                          const targetDay = weekDays[dayIdx];
+                          setNewDate(targetDay.toISOString().split('T')[0]);
+                          const hour = 8 + hourIdx;
+                          setNewTime(`${String(hour).padStart(2, '0')}:00`);
+                          setNewPetId('');
+                          setPetSearchQuery('');
+                          setShowAddModal(true);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setDraggedOverSlot({ dayIdx, hourIdx });
+                        }}
+                        onDragLeave={() => {
+                          setDraggedOverSlot(null);
+                        }}
+                        onDrop={(e) => {
+                          setDraggedOverSlot(null);
+                          handleDropPet(e, dayIdx, hourIdx);
+                        }}
+                        title="Click directly to log appointment, or drag/drop a pet here"
+                      >
+                        {isDraggedOver && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-100/70 pointer-events-none text-center">
+                            <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-widest font-mono">📅 Drop to Schedule</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
 
@@ -613,7 +857,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 
                 // Formulate hour tag
                 const startHourStr = new Date(app.dateTime).toLocaleTimeString('en-US', {
-                  hour: '2-digit', minute: '2-digit', hour12: false
+                  hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC'
                 });
 
                 // Calculate relative percentage offset from Left and width of dynamic columns
@@ -875,8 +1119,8 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
       {/* 4. Beautiful New Appointment Popup/Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-3xs flex items-center justify-center z-50 p-4 font-sans">
-          <div className="bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] w-full max-w-md overflow-hidden flex flex-col">
-            <div className="bg-[#FAFAFA] px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="bg-[#FAFAFA] px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2 font-mono">
                 <PlusCircle className="w-4 h-4 text-black" />
                 📅 Schedule Patient Appointment
@@ -891,73 +1135,228 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
             <form onSubmit={handleCreateNewAppointmentForm} className="p-5 space-y-4 text-xs">
               
-              {/* Client & Pet Search Field */}
-              <div className="relative">
-                <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>1. Client &amp; Pet Search</span>
-                  <span className="text-[9px] font-mono text-slate-400">Search instantly</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={petSearchQuery}
-                    onChange={(e) => {
-                      setPetSearchQuery(e.target.value);
-                      if (!e.target.value) {
-                        setNewPetId('');
-                      }
-                    }}
-                    placeholder="Type client name, pet name, or breed..."
-                    className="w-full text-xs pl-8 pr-3 py-2.5 rounded-xl border border-[#E5E7EB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white"
-                  />
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-[11px] text-slate-400" />
-                </div>
-
-                {/* Live suggestion list */}
-                {filteredPetsForSearch.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                    {filteredPetsForSearch.map(p => {
-                      const client = clients.find(c => c.id === p.ownerId);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setNewPetId(p.id);
-                            setPetSearchQuery(`${p.name} (Owner: ${client ? client.name : 'Unknown'})`);
-                          }}
-                          className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer text-xs"
-                        >
-                          <div>
-                            <p className="font-bold text-slate-800">{p.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{p.species} • {p.breed}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[9px] bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded border border-slate-200">
-                              Owner: {client ? client.name : 'Walk-in'}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Selected Pet Details Badge */}
-                {newPetId && (
-                  <div className="mt-1.5 flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                    <span>
-                      Selected Asset: <strong>{pets.find(p => p.id === newPetId)?.name || 'Unknown'}</strong> 
-                      {(() => {
-                        const pet = pets.find(p => p.id === newPetId);
-                        const owner = pet ? clients.find(c => c.id === pet.ownerId) : null;
-                        return owner ? ` (Owner: ${owner.name})` : '';
-                      })()}
-                    </span>
-                  </div>
-                )}
+              {/* Select Existing or Register First-Visit */}
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsFirstTimeVisit(false)}
+                  className={`flex-1 py-1.5 text-center text-[11px] font-bold rounded-lg transition-all ${
+                    !isFirstTimeVisit 
+                      ? 'bg-white text-black shadow-3xs' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  🔍 Existing Client
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFirstTimeVisit(true)}
+                  className={`flex-1 py-1.5 text-center text-[11px] font-bold rounded-lg transition-all ${
+                    isFirstTimeVisit 
+                      ? 'bg-white text-black shadow-3xs' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  ✨ First-Time Visit (New Client)
+                </button>
               </div>
+
+              {isFirstTimeVisit ? (
+                /* First-Time Visit / Register New Client & Pet Form Fields */
+                <div className="space-y-3 bg-indigo-50/40 p-3.5 rounded-xl border border-indigo-100/60">
+                  <h4 className="font-mono text-[9px] uppercase tracking-wider text-[#00647c] font-extrabold flex items-center gap-1.5 mb-1 bg-white px-2 py-1 rounded border border-indigo-100">
+                    <span>👤 Register New Client Profile</span>
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Client Full Name *</label>
+                      <input 
+                        type="text"
+                        value={newClientName}
+                        onChange={e => setNewClientName(e.target.value)}
+                        placeholder="Sarah Johnson"
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-805 text-slate-900 font-medium focus:outline-none"
+                        required={isFirstTimeVisit}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Contact Email</label>
+                        <input 
+                          type="email"
+                          value={newClientEmail}
+                          onChange={e => setNewClientEmail(e.target.value)}
+                          placeholder="sarah@example.com"
+                          className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Phone Number</label>
+                        <input 
+                          type="text"
+                          value={newClientPhone}
+                          onChange={e => setNewClientPhone(e.target.value)}
+                          placeholder="555-0122"
+                          className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <h5 className="font-mono text-[9px] uppercase tracking-wider text-[#00647c] font-extrabold flex items-center gap-1.5 mt-4 mb-1 border-t border-indigo-100/50 pt-3 bg-white px-2 py-1 rounded border border-indigo-100">
+                    <span>🐾 Register Patient Bio Record</span>
+                  </h5>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Pet Name *</label>
+                      <input 
+                        type="text"
+                        value={newPetName}
+                        onChange={e => setNewPetName(e.target.value)}
+                        placeholder="Max"
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 font-bold focus:outline-none"
+                        required={isFirstTimeVisit}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Species *</label>
+                      <select
+                        value={newPetSpecies}
+                        onChange={e => setNewPetSpecies(e.target.value as any)}
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                      >
+                        <option value="Dog">Dog</option>
+                        <option value="Cat">Cat</option>
+                        <option value="Bird">Bird</option>
+                        <option value="Rabbit">Rabbit</option>
+                        <option value="Exotic">Exotic</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Breed / Variant</label>
+                      <input 
+                        type="text"
+                        value={newPetBreed}
+                        onChange={e => setNewPetBreed(e.target.value)}
+                        placeholder="Golden Retriever"
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Age / Stage</label>
+                      <input 
+                        type="text"
+                        value={newPetAge}
+                        onChange={e => setNewPetAge(e.target.value)}
+                        placeholder="4 yrs"
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Weight ({unitSystem === 'Imperial' ? 'lb' : 'kg'})</label>
+                      <input 
+                        type="number"
+                        value={newPetWeight}
+                        onChange={e => setNewPetWeight(Number(e.target.value))}
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                        min={0.1}
+                        step={0.1}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Gender</label>
+                      <select
+                        value={newPetGender}
+                        onChange={e => setNewPetGender(e.target.value as any)}
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Neutered Male">Neutered Male</option>
+                        <option value="Spayed Female">Spayed Female</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Alerts / Allergies</label>
+                      <input 
+                        type="text"
+                        value={newPetAllergies}
+                        onChange={e => setNewPetAllergies(e.target.value)}
+                        placeholder="Penicillin, Pollen (comma separated)"
+                        className="w-full text-xs p-2.5 rounded-lg border border-[#E5E7EB] bg-white text-slate-900 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Client & Pet Search Field */
+                <div className="relative">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>1. Client &amp; Pet Search</span>
+                    <span className="text-[9px] font-mono text-slate-400">Search instantly</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={petSearchQuery}
+                      onChange={(e) => {
+                        setPetSearchQuery(e.target.value);
+                        if (!e.target.value) {
+                          setNewPetId('');
+                        }
+                      }}
+                      placeholder="Type client name, pet name, or breed..."
+                      className="w-full text-xs pl-8 pr-3 py-2.5 rounded-xl border border-[#E5E7EB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white"
+                    />
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-[11px] text-slate-400" />
+                  </div>
+
+                  {/* Live suggestion list */}
+                  {filteredPetsForSearch.length > 0 && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                      {filteredPetsForSearch.map(p => {
+                        const client = clients.find(c => c.id === p.ownerId);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setNewPetId(p.id);
+                              setPetSearchQuery(`${p.name} (Owner: ${client ? client.name : 'Unknown'})`);
+                            }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-800">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{p.species} • {p.breed}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[9px] bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded border border-slate-200">
+                                Owner: {client ? client.name : 'Walk-in'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Selected Pet Details Badge */}
+                  {newPetId && (
+                    <div className="mt-1.5 flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-[11px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      <span>
+                        Selected Asset: <strong>{pets.find(p => p.id === newPetId)?.name || 'Unknown'}</strong> 
+                        {(() => {
+                          const pet = pets.find(p => p.id === newPetId);
+                          const owner = pet ? clients.find(c => c.id === pet.ownerId) : null;
+                          return owner ? ` (Owner: ${owner.name})` : '';
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Doctors Select list */}
               <div>
@@ -1068,7 +1467,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 </button>
                 <button 
                   type="submit"
-                  disabled={!newPetId}
+                  disabled={!isFirstTimeVisit && !newPetId}
                   className="px-5 py-2 bg-black text-white rounded-lg hover:bg-[#111827] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all uppercase font-bold text-[10px] tracking-wider font-mono"
                 >
                   Book Appointment

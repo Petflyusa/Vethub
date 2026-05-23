@@ -476,6 +476,29 @@ export function ReceptionDashboard({
 }: ReceptionDashboardProps) {
   const [bookingMode, setBookingMode] = useState<'REGISTER' | 'RETURNING'>('RETURNING');
   
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  React.useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }); // Read to capture dynamic updates immediately!
+
+  const renderWeight = (kgVal: number) => {
+    if (unitSystem === 'Imperial') {
+      const lbVal = kgVal * 2.20462;
+      return `${lbVal.toFixed(1)} lb`;
+    } else {
+      return `${kgVal.toFixed(1)} kg`;
+    }
+  };
+  
   // Returning Client scheduler states
   const [rSelectedClientId, setRSelectedClientId] = useState(clients[0]?.id || '');
   const [rSelectedPetId, setRSelectedPetId] = useState(pets.find(p => p.ownerId === clients[0]?.id)?.id || '');
@@ -569,7 +592,7 @@ export function ReceptionDashboard({
       species: nPetSpecies,
       breed: nPetBreed || 'Mixed Breed',
       age: nPetAge || 'Puppy / Kitteh',
-      weight: nPetWeight,
+      weight: unitSystem === 'Imperial' ? (nPetWeight / 2.20462) : nPetWeight,
       gender: nPetGender,
       status: 'Checked In', // Pushed straight in!
       ownerId: newClientId,
@@ -920,7 +943,7 @@ export function ReceptionDashboard({
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-1">
-                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Wgt (kg)</label>
+                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Wgt ({unitSystem === 'Imperial' ? 'lb' : 'kg'})</label>
                   <input
                     type="number" value={nPetWeight} onChange={(e) => setNPetWeight(Number(e.target.value))}
                     className="w-full text-xs p-1.5 bg-white border border-slate-200 rounded"
@@ -1095,6 +1118,29 @@ export function TechDashboard({
 }: TechDashboardProps) {
   const [resultInput, setResultInput] = useState('');
   const [activeLabId, setActiveLabId] = useState<string | null>(labOrders[0]?.id || null);
+
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const renderWeight = (kgVal: number) => {
+    if (unitSystem === 'Imperial') {
+      const lbVal = kgVal * 2.20462;
+      return `${lbVal.toFixed(1)} lb`;
+    } else {
+      return `${kgVal.toFixed(1)} kg`;
+    }
+  };
 
   // Inpatient overnight list
   const inpatients = useMemo(() => {
@@ -1437,6 +1483,29 @@ export function ManagerDashboard({
 }: ManagerDashboardProps) {
   const [activeSubTab, setActiveSubTab] = useState<'OVERVIEW' | 'PRICING' | 'INVENTORY' | 'PROMOTIONS'>('OVERVIEW');
 
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const renderWeight = (kgVal: number) => {
+    if (unitSystem === 'Imperial') {
+      const lbVal = kgVal * 2.20462;
+      return `${lbVal.toFixed(1)} lb`;
+    } else {
+      return `${kgVal.toFixed(1)} kg`;
+    }
+  };
+
   // Listen for shift schedule updates to live-reload calendar content
   const [scheduleVersion, setScheduleVersion] = useState(0);
   useEffect(() => {
@@ -1715,7 +1784,7 @@ export function ManagerDashboard({
                         <div className="flex items-center gap-3">
                           <img src={p.avatar} alt={p.name} className="w-9 h-9 rounded-full object-cover border" />
                           <div>
-                            <h4 className="text-xs font-bold text-slate-850">{p.name} <span className="text-[9.5px] text-slate-400 font-medium">({p.species} • {p.weight} kg)</span></h4>
+                            <h4 className="text-xs font-bold text-slate-850">{p.name} <span className="text-[9.5px] text-slate-400 font-medium">({p.species} • {renderWeight(p.weight)})</span></h4>
                             <p className="text-[9px] text-slate-400 font-medium leading-none">Owner: {client?.name}</p>
                           </div>
                         </div>
@@ -2063,6 +2132,29 @@ export function FinanceDashboard({
   onMarkInvoicePaid
 }: FinanceDashboardProps) {
 
+  // Dynamic weight units configuration
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const renderWeight = (kgVal: number) => {
+    if (unitSystem === 'Imperial') {
+      const lbVal = kgVal * 2.20462;
+      return `${lbVal.toFixed(1)} lb`;
+    } else {
+      return `${kgVal.toFixed(1)} kg`;
+    }
+  };
+
   // Clinic Operations Statistics
   const activeInpatients = pets.filter(p => p.status === 'Overnight Stay');
   const activeSurgeries = pets.filter(p => p.status === 'In Surgery');
@@ -2109,7 +2201,7 @@ export function FinanceDashboard({
                         {p.name} • <span className="text-slate-550 text-[10px] uppercase font-mono font-bold">{p.species} ({p.breed})</span>
                       </h4>
                       <p className="text-[10px] text-[#545d62] font-semibold mt-0.5">
-                        Responsible Client: {client?.name} • Weight: {p.weight} kg
+                        Responsible Client: {client?.name} • Weight: {renderWeight(p.weight)}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {p.alertAllergies.map((alg) => (

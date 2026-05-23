@@ -11,7 +11,33 @@ import {
   Settings, Clock, Award, Phone, Mail, ToggleLeft, ToggleRight, 
   Trash2, X, Plus, AlertCircle, RefreshCw, Calendar, Sparkles, RotateCcw, AlertTriangle
 } from 'lucide-react';
-import { Staff, Role } from '../types';
+import { Staff, Role, getRoleDefaultPermissions, hasPermission, saveRoleDefaultPermissions } from '../types';
+
+const PERMISSION_ROWS = [
+  { key: 'dashboard', name: 'Role Dashboard', reception: true, dvm: true, tech: true, manager: true },
+  { key: 'patients', name: 'Client & Patient Management', reception: true, dvm: true, tech: true, manager: true },
+  { key: 'appointments', name: 'Appointment Management', reception: true, dvm: true, tech: false, manager: true },
+  { key: 'calendar', name: 'Calendar & Scheduling', reception: true, dvm: true, tech: false, manager: true },
+  { key: 'board', name: 'Patient Queue Board', reception: true, dvm: true, tech: true, manager: true },
+  { key: 'soap_edit', name: 'Admission & SOAP Editing', reception: false, dvm: true, tech: false, manager: false },
+  { key: 'records_view', name: 'Medical/Vaccine Records View', reception: false, dvm: true, tech: true, manager: true, managerText: '✅ (Read-only)' },
+  { key: 'orders_create', name: 'Prescribe & Create Orders', reception: false, dvm: true, tech: false, manager: false },
+  { key: 'treatment_exec', name: 'Treatment Execution', reception: false, dvm: false, tech: true, manager: false },
+  { key: 'pharmacy', name: 'Prescriptions & Pharmacy', reception: false, dvm: true, tech: false, manager: true },
+  { key: 'inpatient', name: 'Inpatient & Ward Management', reception: false, dvm: true, tech: true, manager: true },
+  { key: 'discharge', name: 'Billing Clearance & Discharge', reception: true, dvm: false, tech: false, manager: true },
+  { key: 'billing', name: 'Invoices & Payments', reception: true, dvm: false, tech: false, manager: true },
+  { key: 'staff_manage', name: 'Staff Roster & Wage Management', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'scheduling', name: 'Shift Roster & Planning', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'permissions_edit', name: 'Security Permissions Allocation', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'pricing', name: 'Clinic Pricing Catalog Management', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'inventory', name: 'Inventory & Stock Control', reception: false, dvm: false, tech: true, manager: true },
+  { key: 'suppliers', name: 'Supplier & Vendor Orders', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'reports', name: 'Financial Reports & Revenue Analytics', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'audit_logs', name: 'Security Audit Logs', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'promotions', name: 'Marketing Campaigns & Promotions', reception: false, dvm: false, tech: false, manager: true },
+  { key: 'settings', name: 'Global Clinic Settings', reception: false, dvm: false, tech: false, manager: true },
+];
 
 interface StaffViewProps {
   allStaff: Staff[];
@@ -26,7 +52,32 @@ export default function StaffView({
   onAddStaff,
   onUpdateStaff
 }: StaffViewProps) {
+  const isAdmin = useMemo(() => {
+    if (!loggedInStaff) return false;
+    return (
+      loggedInStaff.role === Role.OWNER ||
+      loggedInStaff.role === Role.ADMIN ||
+      loggedInStaff.role === Role.MANAGER ||
+      hasPermission(loggedInStaff, 'permissions_edit')
+    );
+  }, [loggedInStaff]);
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [rolePermissionsEpoch, setRolePermissionsEpoch] = useState(0);
+
+  const handleToggleRoleDefaultPermission = (role: Role, permission: string) => {
+    if (!isAdmin) {
+      alert("Error: Administrative permissions required to edit role-level defaults.");
+      return;
+    }
+    const currentList = getRoleDefaultPermissions(role);
+    const updatedList = currentList.includes(permission)
+      ? currentList.filter(p => p !== permission)
+      : [...currentList, permission];
+    
+    saveRoleDefaultPermissions(role, updatedList);
+    setRolePermissionsEpoch(prev => prev + 1);
+  };
   const [roleFilter, setRoleFilter] = useState<'ALL' | Role>('ALL');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(
     allStaff[0]?.id || null
@@ -247,7 +298,8 @@ export default function StaffView({
   const handleTogglePermission = (staffId: string, permission: string) => {
     const nextStaffList = allStaff.map(s => {
       if (s.id === staffId) {
-        const currentPerms = s.permissions || [];
+        // Fallback to defaults first instead of an empty array so they don't lose standard keys of their role
+        const currentPerms = s.permissions && s.permissions.length > 0 ? s.permissions : getRoleDefaultPermissions(s.role);
         const updatedPerms = currentPerms.includes(permission)
           ? currentPerms.filter(p => p !== permission)
           : [...currentPerms, permission];
@@ -267,16 +319,7 @@ export default function StaffView({
     if (!newName || !newEmail) return;
 
     // Create realistic initial permissions based on role
-    const initialPerms: string[] = [];
-    if (newRole === Role.DVM || newRole === Role.OWNER || newRole === Role.MANAGER) {
-      initialPerms.push('SOAP_RECORDS_EDIT', 'BILLING_INVOICE', 'PHARMACY_Dispense', 'STAFF_PERMISSIONS_EDIT');
-    } else if (newRole === Role.TECH) {
-      initialPerms.push('SOAP_RECORDS_EDIT');
-    } else if (newRole === Role.RECEPTION) {
-      initialPerms.push('BILLING_INVOICE');
-    } else if (newRole === Role.FINANCE) {
-      initialPerms.push('BILLING_INVOICE');
-    }
+    const initialPerms = getRoleDefaultPermissions(newRole);
 
     const newStaffObj: Staff = {
       id: `st-new-${Date.now()}`,
@@ -606,6 +649,7 @@ export default function StaffView({
 
                   <div className="flex items-center gap-3 pt-1">
                     <button
+                      type="button"
                       onClick={() => handleToggleActive(selectedStaff.id)}
                       className={`px-3 py-1.5 rounded-xl font-bold text-[10.5px] tracking-wide cursor-pointer transition-all ${
                         selectedStaff.active
@@ -615,81 +659,166 @@ export default function StaffView({
                     >
                       {selectedStaff.active ? '✓ Cover Shifts Active Office-Wide' : 'Set Active for Shift Support'}
                     </button>
-                    <p className="text-[10px] text-slate-400">
-                      Currently: {selectedStaff.active ? 'Accepting medical admissions.' : 'Not active.'}
-                    </p>
                   </div>
                 </div>
 
                 {/* Security permissions config */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1 border-b pb-2">
-                    <ShieldCheck className="w-4.5 h-4.5 text-indigo-500" /> Access Authorization Control Matrix
-                  </h4>
-                  <p className="text-[10.5px] text-slate-500">
-                    Enable or withdraw system actions for this specific credentials key based on standard HIPAA or clinical guidelines guidelines:
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2 border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-5 h-5 text-indigo-600" /> Access Authorization Control Matrix
+                    </h4>
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-lg border border-indigo-100">
+                      Editing: {selectedStaff.name} ({selectedStaff.role})
+                    </span>
+                  </div>
+                  
+                  <p className="text-[10.5px] text-slate-500 leading-relaxed font-semibold">
+                    The matrix below maps out clinical authorizations. As an administrator, you can now toggle <strong>role-level default permissions</strong> directly in each role column, or manage <strong>active overrides</strong> for <strong>{selectedStaff.name}</strong> on the right:
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                    
-                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
-                      <input
-                        type="checkbox"
-                        id="perm-soap"
-                        checked={(selectedStaff.permissions || []).includes('SOAP_RECORDS_EDIT')}
-                        onChange={() => handleTogglePermission(selectedStaff.id, 'SOAP_RECORDS_EDIT')}
-                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
-                      />
-                      <label htmlFor="perm-soap" className="select-none cursor-pointer space-y-0.5">
-                        <span className="block text-xs font-bold text-slate-850">SOAP EHR Editing</span>
-                        <span className="block text-[9.5px] text-slate-400">Authorizes practitioner charting, writeups and locking clinical treatment notes.</span>
-                      </label>
+                  {!isAdmin && (
+                    <div className="bg-[#fff5f5] border border-rose-200 rounded-xl p-3.5 text-[11px] text-[#9b2c2c] space-y-1 shadow-3xs">
+                      <p className="font-bold flex items-center gap-1.5">
+                        ⚠️ Administrative Access Required to Edit
+                      </p>
+                      <p className="text-rose-900/80 leading-snug">
+                        Your currently logged-in account (<strong>{loggedInStaff?.name || 'Guest / Unsigned'}</strong>) does not have privileges to modify user security profiles. To grant/revoke permissions, please use the <strong>Sandbox Environment Role Swapper</strong> at the bottom of the sign-in screen to switch to an administrator role (e.g. <strong>Dr. Lawrence (OWNER)</strong> or <strong>Clinic Manager (MANAGER)</strong>).
+                      </p>
                     </div>
+                  )}
 
-                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
-                      <input
-                        type="checkbox"
-                        id="perm-bill"
-                        checked={(selectedStaff.permissions || []).includes('BILLING_INVOICE')}
-                        onChange={() => handleTogglePermission(selectedStaff.id, 'BILLING_INVOICE')}
-                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
-                      />
-                      <label htmlFor="perm-bill" className="select-none cursor-pointer space-y-0.5">
-                        <span className="block text-xs font-bold text-slate-850">Billing Folder Settlement</span>
-                        <span className="block text-[9.5px] text-slate-400">Authorizes patient invoice adjustments, check-out payments, and ledger logs.</span>
-                      </label>
+                  {selectedStaff.role === Role.OWNER ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-[11px] text-amber-800 space-y-1">
+                      <p className="font-bold flex items-center gap-1.5">
+                        👑 Absolute Control: Clinic Owner Credentials
+                      </p>
+                      <p className="text-slate-600 leading-snug">
+                        The Owner role has complete structural clearance across all pages and configurations. Security permissions cannot be manually revoked or modified for security assurance.
+                      </p>
                     </div>
+                  ) : null}
 
-                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
-                      <input
-                        type="checkbox"
-                        id="perm-pharm"
-                        checked={(selectedStaff.permissions || []).includes('PHARMACY_Dispense')}
-                        onChange={() => handleTogglePermission(selectedStaff.id, 'PHARMACY_Dispense')}
-                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
-                      />
-                      <label htmlFor="perm-pharm" className="select-none cursor-pointer space-y-0.5">
-                        <span className="block text-xs font-bold text-slate-850">Prescription Dispensation</span>
-                        <span className="block text-[9.5px] text-slate-400">Permits dispensing critical pharmaceutical medications and dangerous narcotics.</span>
-                      </label>
-                    </div>
+                  {/* Matrix Table */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs max-h-[460px] overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-[10.5px]">
+                      <thead className="bg-[#f8fafc] border-b border-slate-200 font-bold text-slate-600 sticky top-0 z-10 backdrop-blur-xs">
+                        <tr>
+                          <th className="py-3 px-3.5 bg-[#f8fafc] text-slate-700 font-bold">Page / Action</th>
+                          <th className="text-center py-3 px-2 bg-[#f1f5f9] text-indigo-900/90 font-bold text-[10px] border-x border-slate-200">Rec (Default)</th>
+                          <th className="text-center py-3 px-2 bg-[#f1f5f9] text-indigo-900/90 font-bold text-[10px] border-r border-slate-200">DVM (Default)</th>
+                          <th className="text-center py-3 px-2 bg-[#f1f5f9] text-indigo-900/90 font-bold text-[10px] border-r border-slate-200">Tech (Default)</th>
+                          <th className="text-center py-3 px-2 bg-[#f1f5f9] text-indigo-900/90 font-bold text-[10px] border-r border-slate-200">Mgr (Default)</th>
+                          <th className="text-center py-3 px-2 bg-[#f1f5f9] text-indigo-900/90 font-bold text-[10px] border-r border-slate-200">Fin (Default)</th>
+                          <th className="text-center py-3 px-3 font-extrabold text-[#00647c] whitespace-nowrap bg-[#eff4ff] border-l border-indigo-100">
+                            Active Override for {selectedStaff.name.split(' ').pop()}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-150 bg-white">
+                        {PERMISSION_ROWS.map((row, idx) => {
+                          const isRecDefault = getRoleDefaultPermissions(Role.RECEPTION).includes(row.key);
+                          const isDvmDefault = getRoleDefaultPermissions(Role.DVM).includes(row.key);
+                          const isTechDefault = getRoleDefaultPermissions(Role.TECH).includes(row.key);
+                          const isMgrDefault = getRoleDefaultPermissions(Role.MANAGER).includes(row.key);
+                          const isFinDefault = getRoleDefaultPermissions(Role.FINANCE).includes(row.key);
 
-                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
-                      <input
-                        type="checkbox"
-                        id="perm-staff"
-                        checked={(selectedStaff.permissions || []).includes('STAFF_PERMISSIONS_EDIT')}
-                        onChange={() => handleTogglePermission(selectedStaff.id, 'STAFF_PERMISSIONS_EDIT')}
-                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
-                      />
-                      <label htmlFor="perm-staff" className="select-none cursor-pointer space-y-0.5">
-                        <span className="block text-xs font-bold text-slate-850">Faculty Configuration</span>
-                        <span className="block text-[9.5px] text-slate-400">Grants operational power to modify roster duty shifts, catalogs and security access keys.</span>
-                      </label>
-                    </div>
+                          const currentPerms = selectedStaff.permissions && selectedStaff.permissions.length > 0 
+                            ? selectedStaff.permissions 
+                            : getRoleDefaultPermissions(selectedStaff.role);
+                          
+                          const hasPerm = selectedStaff.role === Role.OWNER || currentPerms.includes(row.key);
+                          
+                          return (
+                            <tr key={row.key} className={`hover:bg-slate-50/55 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'}`}>
+                              <td className="py-2.5 px-3.5 font-semibold text-slate-800">
+                                {row.name}
+                              </td>
+                              
+                              {/* Reception Default */}
+                              <td className="text-center py-2.5 px-2 border-x border-slate-100 bg-[#fbfbfe]">
+                                <input
+                                  type="checkbox"
+                                  checked={isRecDefault}
+                                  disabled={!isAdmin}
+                                  onChange={() => handleToggleRoleDefaultPermission(Role.RECEPTION, row.key)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block transition-all hover:scale-105"
+                                  title="Toggle Default for RECEPTION Role"
+                                />
+                              </td>
 
+                              {/* DVM Default */}
+                              <td className="text-center py-2.5 px-2 border-r border-slate-100 bg-[#fbfbfe]">
+                                <input
+                                  type="checkbox"
+                                  checked={isDvmDefault}
+                                  disabled={!isAdmin}
+                                  onChange={() => handleToggleRoleDefaultPermission(Role.DVM, row.key)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block transition-all hover:scale-105"
+                                  title="Toggle Default for DVM Role"
+                                />
+                              </td>
+
+                              {/* Tech Default */}
+                              <td className="text-center py-2.5 px-2 border-r border-slate-100 bg-[#fbfbfe]">
+                                <input
+                                  type="checkbox"
+                                  checked={isTechDefault}
+                                  disabled={!isAdmin}
+                                  onChange={() => handleToggleRoleDefaultPermission(Role.TECH, row.key)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block transition-all hover:scale-105"
+                                  title="Toggle Default for TECH Role"
+                                />
+                              </td>
+
+                              {/* Manager Default */}
+                              <td className="text-center py-2.5 px-2 border-r border-slate-100 bg-[#fbfbfe]">
+                                <input
+                                  type="checkbox"
+                                  checked={isMgrDefault}
+                                  disabled={!isAdmin}
+                                  onChange={() => handleToggleRoleDefaultPermission(Role.MANAGER, row.key)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block transition-all hover:scale-105"
+                                  title="Toggle Default for MANAGER Role"
+                                />
+                              </td>
+
+                              {/* Finance Default */}
+                              <td className="text-center py-2.5 px-2 border-r border-slate-100 bg-[#fbfbfe]">
+                                <input
+                                  type="checkbox"
+                                  checked={isFinDefault}
+                                  disabled={!isAdmin}
+                                  onChange={() => handleToggleRoleDefaultPermission(Role.FINANCE, row.key)}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block transition-all hover:scale-105"
+                                  title="Toggle Default for FINANCE Role"
+                                />
+                              </td>
+
+                              {/* Staff Specific Override */}
+                              <td className="text-center py-2.5 px-3 bg-[#eff4ff]/30 border-l border-indigo-50">
+                                <input
+                                  type="checkbox"
+                                  checked={hasPerm}
+                                  disabled={!isAdmin || selectedStaff.role === Role.OWNER}
+                                  onChange={() => handleTogglePermission(selectedStaff.id, row.key)}
+                                  className="rounded text-[#00647c] focus:ring-[#00647c] h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed mx-auto block"
+                                  title={`Toggle override for ${selectedStaff.name}`}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
+                  <div className="bg-slate-50 border rounded-xl p-3 text-[10px] text-slate-550 leading-relaxed font-medium flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                    <span>
+                      Dynamic overrides take effect instantly across active sessions. Legacy standard system rules are seamlessly preserved for non-customized profiles.
+                    </span>
+                  </div>
                 </div>
 
               </div>

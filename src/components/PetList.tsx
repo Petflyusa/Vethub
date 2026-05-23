@@ -24,7 +24,7 @@ import {
   Edit2,
   Filter
 } from 'lucide-react';
-import { Pet, Client, MedicalRecord, Staff } from '../types';
+import { Pet, Client, MedicalRecord, Staff, calculateAgeFromDob } from '../types';
 
 interface PetListProps {
   pets: Pet[];
@@ -49,6 +49,34 @@ export default function PetList({
   onUpdateClient,
   onStartNewSoap
 }: PetListProps) {
+  // Dynamic weight and measurement unit parameters
+  const [unitSystem, setUnitSystem] = useState<'Imperial' | 'Metric'>('Imperial');
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('vet_system_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.weightUnit) {
+          setUnitSystem(parsed.weightUnit);
+        }
+      } catch (e) {}
+    }
+  }); // Read to capture dynamic updates immediately!
+
+  const renderWeight = (kgVal: number) => {
+    if (unitSystem === 'Imperial') {
+      const lbVal = kgVal * 2.20462;
+      return `${lbVal.toFixed(1)} lb`;
+    } else {
+      return `${kgVal.toFixed(1)} kg`;
+    }
+  };
+
+  const [newPetDob, setNewPetDob] = useState('2023-03-23');
+  const [ownerPetDob, setOwnerPetDob] = useState('2023-03-23');
+  const [editPetDob, setEditPetDob] = useState('2023-03-23');
+
   // Navigation & filtering state
   const [activeSubTab, setActiveSubTab] = useState<'patients' | 'clients'>('patients');
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,12 +144,27 @@ export default function PetList({
     setEditPetSpecies(pet.species);
     setEditPetBreed(pet.breed);
     setEditPetAge(pet.age);
-    setEditPetWeight(pet.weight);
+    // Convert internally stored kg to local units (lb or kg) for edit input display
+    const isImperial = (unitSystem === 'Imperial');
+    setEditPetWeight(isImperial ? (pet.weight * 2.20462) : pet.weight);
     setEditPetGender(pet.gender);
     setEditPetStatus(pet.status);
     setEditPetAllergies(pet.alertAllergies.join(', '));
+    setEditPetDob(pet.dob || '2023-03-23');
     setIsEditingPet(true);
   };
+
+  useEffect(() => {
+    setNewPetAge(calculateAgeFromDob(newPetDob));
+  }, [newPetDob]);
+
+  useEffect(() => {
+    setOwnerPetAge(calculateAgeFromDob(ownerPetDob));
+  }, [ownerPetDob]);
+
+  useEffect(() => {
+    setEditPetAge(calculateAgeFromDob(editPetDob));
+  }, [editPetDob]);
 
   const handleStartEditClient = (client: Client) => {
     setEditClientName(client.name);
@@ -227,7 +270,8 @@ export default function PetList({
       species: newPetSpecies,
       breed: newPetBreed || 'Mixed Breed',
       age: newPetAge || 'Under 1 year',
-      weight: Number(newPetWeight) || 5.0,
+      dob: newPetDob,
+      weight: unitSystem === 'Imperial' ? ((Number(newPetWeight) || 5.0) / 2.20462) : (Number(newPetWeight) || 5.0),
       gender: newPetGender,
       status: 'Checked In',
       ownerId: clientId,
@@ -271,7 +315,8 @@ export default function PetList({
       species: ownerPetSpecies,
       breed: ownerPetBreed || 'Mixed Breed',
       age: ownerPetAge || 'Under 1 year',
-      weight: Number(ownerPetWeight) || 5.0,
+      dob: ownerPetDob,
+      weight: unitSystem === 'Imperial' ? ((Number(ownerPetWeight) || 5.0) / 2.20462) : (Number(ownerPetWeight) || 5.0),
       gender: ownerPetGender,
       status: 'Checked In',
       ownerId: selectedClientId,
@@ -307,7 +352,8 @@ export default function PetList({
       species: editPetSpecies,
       breed: editPetBreed,
       age: editPetAge,
-      weight: Number(editPetWeight) || 5.0,
+      dob: editPetDob,
+      weight: unitSystem === 'Imperial' ? ((Number(editPetWeight) || 5.0) / 2.20462) : (Number(editPetWeight) || 5.0),
       gender: editPetGender,
       status: editPetStatus,
       alertAllergies: allergiesArr
@@ -837,23 +883,23 @@ export default function PetList({
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-[#545d62] mb-1">Age</label>
+                      <label className="block text-[10px] font-bold text-[#545d62] mb-1">Date of Birth (DOB)</label>
                       <input
-                        type="text"
-                        value={newPetAge}
-                        onChange={(e) => setNewPetAge(e.target.value)}
-                        placeholder="e.g. 2 years 4 months"
-                        className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none"
+                        type="date"
+                        value={newPetDob}
+                        onChange={(e) => setNewPetDob(e.target.value)}
+                        className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none bg-white font-mono text-slate-700"
                       />
+                      <span className="text-[10px] text-slate-500 font-bold block mt-1">Calculated: <span className="text-primary font-mono">{newPetAge}</span></span>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight (kg)</label>
+                      <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight ({unitSystem === 'Imperial' ? 'lb' : 'kg'})</label>
                       <input
                         type="number"
                         step="0.1"
                         value={newPetWeight}
                         onChange={(e) => setNewPetWeight(Number(e.target.value))}
-                        className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none"
+                        className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none bg-white text-slate-700"
                       />
                     </div>
                     <div>
@@ -1012,22 +1058,23 @@ export default function PetList({
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-[#545d62] mb-1">Age</label>
+                          <label className="block text-[10px] font-bold text-[#545d62] mb-1">Date of Birth (DOB)</label>
                           <input
-                            type="text"
-                            value={editPetAge}
-                            onChange={(e) => setEditPetAge(e.target.value)}
-                            className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none"
+                            type="date"
+                            value={editPetDob}
+                            onChange={(e) => setEditPetDob(e.target.value)}
+                            className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none bg-white font-mono text-slate-700"
                           />
+                          <span className="text-[10px] text-slate-500 font-bold block mt-1">Calculated: <span className="text-primary font-mono">{editPetAge}</span></span>
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight (kg)</label>
+                          <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight ({unitSystem === 'Imperial' ? 'lb' : 'kg'})</label>
                           <input
                             type="number"
                             step="0.1"
                             value={editPetWeight}
                             onChange={(e) => setEditPetWeight(Number(e.target.value))}
-                            className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none"
+                            className="w-full text-xs p-2.5 border border-outline-variant rounded-lg focus:outline-none bg-white text-slate-700"
                           />
                         </div>
                         <div>
@@ -1144,7 +1191,7 @@ export default function PetList({
                         </div>
                         <div>
                           <span className="block text-[9px] text-[#545d62] uppercase font-bold tracking-wider font-mono">Weight</span>
-                          <span className="text-xs font-bold text-[#0d1c2e]">{selectedPet.weight} kg</span>
+                          <span className="text-xs font-bold text-[#0d1c2e]">{renderWeight(selectedPet.weight)}</span>
                         </div>
                         <div>
                           <span className="block text-[9px] text-[#545d62] uppercase font-bold tracking-wider font-mono">Sex</span>
@@ -1431,23 +1478,23 @@ export default function PetList({
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-[#545d62] mb-1">Age</label>
+                        <label className="block text-[10px] font-bold text-[#545d62] mb-1">Date of Birth (DOB)</label>
                         <input
-                          type="text"
-                          value={ownerPetAge}
-                          onChange={(e) => setOwnerPetAge(e.target.value)}
-                          placeholder="e.g. 1 year 2 months"
-                          className="w-full text-xs p-2 bg-white border border-outline-variant rounded-lg focus:outline-none"
+                          type="date"
+                          value={ownerPetDob}
+                          onChange={(e) => setOwnerPetDob(e.target.value)}
+                          className="w-full text-xs p-2 bg-white border border-outline-variant rounded-lg focus:outline-none bg-white font-mono text-slate-700"
                         />
+                        <span className="text-[10px] text-slate-500 font-bold block mt-1">Calculated: <span className="text-primary font-mono">{ownerPetAge}</span></span>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight (kg)</label>
+                        <label className="block text-[10px] font-bold text-[#545d62] mb-1">Weight ({unitSystem === 'Imperial' ? 'lb' : 'kg'})</label>
                         <input
                           type="number"
                           step="0.1"
                           value={ownerPetWeight}
                           onChange={(e) => setOwnerPetWeight(Number(e.target.value))}
-                          className="w-full text-xs p-2 bg-white border border-outline-variant rounded-lg focus:outline-none"
+                          className="w-full text-xs p-2 bg-white border border-outline-variant rounded-lg focus:outline-none bg-white text-slate-700"
                         />
                       </div>
                       <div>
@@ -1537,7 +1584,7 @@ export default function PetList({
                                   {pet.gender} • {pet.breed}
                                 </p>
                                 <p className="text-[9px] text-slate-400 font-bold uppercase font-mono tracking-wider">
-                                  {pet.species} • {pet.age} • {pet.weight} kg
+                                  {pet.species} • {pet.age} • {renderWeight(pet.weight)}
                                 </p>
                               </div>
 

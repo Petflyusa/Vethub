@@ -1,1358 +1,977 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Clinical Faculty Roster & System Permissions Management.
  */
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Users, Search, Plus, Calendar, Clock, ChevronLeft, ChevronRight, 
-  MapPin, Printer, ShieldCheck, HelpCircle, FileText, UserPlus, 
-  ToggleLeft, ToggleRight, Check, X, Filter, Sparkles 
+  Users, ShieldCheck, CheckCircle2, UserPlus, Search, 
+  Settings, Clock, Award, Phone, Mail, ToggleLeft, ToggleRight, 
+  Trash2, X, Plus, AlertCircle, RefreshCw, Calendar, Sparkles, RotateCcw, AlertTriangle
 } from 'lucide-react';
-import { Staff, Role, getRoleDefaultPermissions, hasPermission } from '../types';
+import { Staff, Role } from '../types';
 
 interface StaffViewProps {
   allStaff: Staff[];
   loggedInStaff: Staff | null;
-  onAddStaff?: (staff: Staff) => void;
-  onUpdateStaff?: (staff: Staff) => void;
+  onAddStaff: (newStaff: Staff) => void;
+  onUpdateStaff: (updatedStaff: Staff[]) => void;
 }
 
-interface Shift {
-  id: string;
-  staffId: string;
-  staffName: string;
-  role: string;
-  dayIndex: number; // 0 = Mon, 1 = Tue, 2 = Wed, etc.
-  startTime: string; // e.g., "07:00"
-  endTime: string; // e.g., "15:00"
-  notes?: string;
-  appointments?: string[]; // Nested appointments for high fidelity surgery lists
-}
-
-export default function StaffView({ 
-  allStaff, 
-  loggedInStaff, 
-  onAddStaff, 
+export default function StaffView({
+  allStaff,
+  loggedInStaff,
+  onAddStaff,
   onUpdateStaff
 }: StaffViewProps) {
-  // Toast notifications state
-  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'info' | 'error' }[]>([]);
-  const addToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    const id = Math.random().toString();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
-  };
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | Role>('ALL');
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(
+    allStaff[0]?.id || null
+  );
 
-  // Local active state tracking for staff members
-  const [localStaff, setLocalStaff] = useState<Staff[]>(() => {
-    // Merge database staff with the mockup specific staff for perfect fidelity
-    const initialSeed = [
-      {
-        id: 'mock-sarah-miller',
-        name: 'Dr. Sarah Miller',
-        email: 'sarah.miller@vethub.com',
-        role: Role.DVM,
-        avatar: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?w=150&auto=format&fit=crop&q=80',
-        active: true,
-        specialty: 'Surgery Dept.',
-        billingRate: 160
-      },
-      {
-        id: 'mock-james-wilson',
-        name: 'James Wilson',
-        email: 'james.wilson@vethub.com',
-        role: Role.TECH,
-        avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
-        active: true,
-        specialty: 'General Care',
-        billingRate: 45
-      },
-      {
-        id: 'mock-elena-rodriguez',
-        name: 'Elena Rodriguez',
-        email: 'elena.rodriguez@vethub.com',
-        role: Role.RECEPTION,
-        avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-        active: true,
-        specialty: 'Marketing & Admin',
-        billingRate: 35
-      },
-      {
-        id: 'mock-tom-kennedy',
-        name: 'Tom Kennedy',
-        email: 'tom.kennedy@vethub.com',
-        role: Role.TECH,
-        avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
-        active: true,
-        specialty: 'Lab Services',
-        billingRate: 50
+  // Form states for registering new staff
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newRole, setNewRole] = useState<Role>(Role.DVM);
+  const [newSpecialty, setNewSpecialty] = useState('');
+  const [newRate, setNewRate] = useState(120);
+
+  // Tab selections
+  const [activeTab, setActiveTab] = useState<'ROSTER' | 'SCHEDULING'>('ROSTER');
+  const [scheduleSearchQuery, setScheduleSearchQuery] = useState('');
+  const [scheduleRoleFilter, setScheduleRoleFilter] = useState<'ALL' | Role>('ALL');
+
+  // Load weekly schedule from localstorage
+  const [weeklySchedule, setWeeklySchedule] = useState<{ [staffId: string]: string[] }>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vet_weekly_schedule');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          // ignore
+        }
       }
-    ];
-
-    // Filter out duplicates from allStaff to keep list rich
-    const dbStaff = allStaff.filter(db => !initialSeed.some(s => s.name === db.name));
-    return [...initialSeed, ...dbStaff];
+    }
+    
+    // Default fallback: Generate realistic default schedule where active staff work
+    const defaultSchedule: { [staffId: string]: string[] } = {};
+    allStaff.forEach((s, sIdx) => {
+      const shifts = [];
+      for (let day = 0; day < 7; day++) {
+        const dayHash = (sIdx + day) % 7;
+        if (dayHash === 0 || dayHash === 6) {
+          shifts.push('OFF');
+        } else if (dayHash === 1 || dayHash === 4) {
+          shifts.push('DAY');
+        } else if (dayHash === 2 || dayHash === 5) {
+          shifts.push('NIGHT');
+        } else {
+          shifts.push('ON_CALL');
+        }
+      }
+      defaultSchedule[s.id] = shifts;
+    });
+    return defaultSchedule;
   });
 
-  // Subview toggles and synchronizations
-  const [activeSubView, setActiveSubView] = useState<'scheduler' | 'permissions'>('scheduler');
-  const [selectedStaffIdPermissions, setSelectedStaffIdPermissions] = useState<string | null>(null);
-
-  const [editStaffName, setEditStaffName] = useState('');
-  const [editStaffEmail, setEditStaffEmail] = useState('');
-  const [editStaffRole, setEditStaffRole] = useState<Role>(Role.TECH);
-  const [editStaffSpecialty, setEditStaffSpecialty] = useState('');
-  const [editStaffBillingRate, setEditStaffBillingRate] = useState(0);
-  const [editStaffPermissions, setEditStaffPermissions] = useState<string[]>([]);
-
-  React.useEffect(() => {
-    if (allStaff && allStaff.length > 0) {
-      setLocalStaff(prev => {
-        return allStaff.map(db => {
-          const match = prev.find(p => p.id === db.id);
-          return match ? { ...match, ...db } : db;
-        });
-      });
+  const handleUpdateShift = (staffId: string, dayIdx: number, newShift: string) => {
+    const updated = {
+      ...weeklySchedule,
+      [staffId]: weeklySchedule[staffId] 
+        ? weeklySchedule[staffId].map((s, idx) => idx === dayIdx ? newShift : s)
+        : Array(7).fill('OFF').map((s, idx) => idx === dayIdx ? newShift : s)
+    };
+    setWeeklySchedule(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vet_weekly_schedule', JSON.stringify(updated));
+      window.dispatchEvent(new Event('vet_schedule_updated'));
     }
-  }, [allStaff]);
+  };
 
-  React.useEffect(() => {
-    if (selectedStaffIdPermissions) {
-      const match = localStaff.find(s => s.id === selectedStaffIdPermissions);
-      if (match) {
-        setEditStaffName(match.name);
-        setEditStaffEmail(match.email);
-        setEditStaffRole(match.role);
-        setEditStaffSpecialty(match.specialty || '');
-        setEditStaffBillingRate(match.billingRate || 0);
-        setEditStaffPermissions(match.permissions || getRoleDefaultPermissions(match.role));
-      }
-    }
-  }, [selectedStaffIdPermissions, localStaff]);
-
-  // Seed shift database matching layout exactly
-  const [shifts, setShifts] = useState<Shift[]>([
-    {
-      id: 'shift-1',
-      staffId: 'mock-sarah-miller',
-      staffName: 'Dr. Sarah Miller',
-      role: 'Surgery',
-      dayIndex: 0, // Mon
-      startTime: '07:00',
-      endTime: '15:00',
-      appointments: ['Orthopedic - Max', 'Dental - Bella']
-    },
-    {
-      id: 'shift-2',
-      staffId: 'mock-tom-kennedy',
-      staffName: 'Tom Kennedy',
-      role: 'Lab',
-      dayIndex: 1, // Tue
-      startTime: '07:00',
-      endTime: '14:30'
-    },
-    {
-      id: 'shift-3',
-      staffId: 'mock-elena-rodriguez',
-      staffName: 'Elena Rodriguez',
-      role: 'Reception',
-      dayIndex: 2, // Wed
-      startTime: '08:30',
-      endTime: '18:30'
-    },
-    {
-      id: 'shift-4',
-      staffId: 'mock-james-wilson',
-      staffName: 'James Wilson',
-      role: 'General',
-      dayIndex: 2, // Wed
-      startTime: '15:00',
-      endTime: '21:00'
-    }
-  ]);
-
-  // Sidebar parameters state
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
-  const [location, setLocation] = useState('Central Clinic');
-  const [currentWeekOffset, setCurrentWeekOffset] = useState(0); // Navigation offset
-  const [roleFilter, setRoleFilter] = useState<'all' | 'DVM' | 'TECH' | 'RECEPTION'>('all');
-  const [staffSearchQuery, setStaffSearchQuery] = useState('');
-
-  // Shift assignment modals
-  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
-  const [isQuickShiftOpen, setIsQuickShiftOpen] = useState(false);
-
-  // New Staff state
-  const [newStaffName, setNewStaffName] = useState('');
-  const [newStaffRole, setNewStaffRole] = useState<Role>(Role.TECH);
-  const [newStaffSpecialty, setNewStaffSpecialty] = useState('');
-  const [newStaffEmail, setNewStaffEmail] = useState('');
-
-  // New Shift state
-  const [newShiftStaffId, setNewShiftStaffId] = useState('');
-  const [newShiftRole, setNewShiftRole] = useState('');
-  const [newShiftDay, setNewShiftDay] = useState(2); // Wednesday default
-  const [newShiftStart, setNewShiftStart] = useState('09:00');
-  const [newShiftEnd, setNewShiftEnd] = useState('17:00');
-
-  // Compute total dynamic hours from active shifts
-  const computedTotalHours = useMemo(() => {
-    let totalMinutes = 0;
-    shifts.forEach(s => {
-      // Find staff and check if they are active
-      const staffMember = localStaff.find(st => st.id === s.staffId);
-      if (staffMember && !staffMember.active) return; // skip inactive staff hours
-
-      const [startH, startM] = s.startTime.split(':').map(Number);
-      const [endH, endM] = s.endTime.split(':').map(Number);
-      
-      const startMinutes = startH * 60 + startM;
-      const endMinutes = endH * 60 + endM;
-      
-      if (endMinutes > startMinutes) {
-        totalMinutes += (endMinutes - startMinutes);
-      }
-    });
-    return (totalMinutes / 60).toFixed(1);
-  }, [shifts, localStaff]);
-
-  // Count active staff currently on duty (or listed)
-  const staffOnDutyCount = useMemo(() => {
-    return localStaff.filter(st => st.active).length;
-  }, [localStaff]);
-
-  const daysOfWeek = [
-    { name: 'Mon', dateNum: 15, full: 'Monday' },
-    { name: 'Tue', dateNum: 16, full: 'Tuesday' },
-    { name: 'Wed', dateNum: 17, full: 'Wednesday' },
-    { name: 'Thu', dateNum: 18, full: 'Thursday' },
-    { name: 'Fri', dateNum: 19, full: 'Friday' },
-    { name: 'Sat', dateNum: 20, full: 'Saturday' },
-    { name: 'Sun', dateNum: 21, full: 'Sunday' }
+  const DAYS = [
+    { key: 'Mon', label: 'Mon', fullLabel: 'Monday' },
+    { key: 'Tue', label: 'Tue', fullLabel: 'Tuesday' },
+    { key: 'Wed', label: 'Wed', fullLabel: 'Wednesday' },
+    { key: 'Thu', label: 'Thu', fullLabel: 'Thursday' },
+    { key: 'Fri', label: 'Fri', fullLabel: 'Friday' },
+    { key: 'Sat', label: 'Sat', fullLabel: 'Saturday' },
+    { key: 'Sun', label: 'Sun', fullLabel: 'Sunday' },
   ];
 
-  // Helper to convert time "07:00" to offset position
-  const getTimeOffsetPerc = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const totalMinutesFrom7AM = (h * 60 + m) - (7 * 60); // Base is 07:00 AM
-    // Range is 14 hours (07:00 to 21:00) => 840 minutes
-    const percentage = (totalMinutesFrom7AM / 840) * 100;
-    return Math.max(0, Math.min(100, percentage));
+  const getShiftDetails = (shiftCode: string) => {
+    switch (shiftCode) {
+      case 'DAY':
+        return {
+          label: 'Day Shift',
+          time: '08:00 - 16:00',
+          bg: 'bg-amber-50 text-amber-800 border-amber-200/60 hover:bg-amber-100 hover:border-amber-300',
+          dot: 'bg-amber-500',
+          icon: '☀️'
+        };
+      case 'NIGHT':
+        return {
+          label: 'Night Shift',
+          time: '16:00 - 24:00',
+          bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/60 hover:bg-indigo-100 hover:border-indigo-300',
+          dot: 'bg-indigo-500',
+          icon: '🌙'
+        };
+      case 'ON_CALL':
+        return {
+          label: 'On-Call Shift',
+          time: '24h Standby',
+          bg: 'bg-rose-50 text-rose-800 border-rose-200/60 hover:bg-rose-100 hover:border-rose-300',
+          dot: 'bg-rose-500',
+          icon: '🚨'
+        };
+      default:
+        return {
+          label: 'Off-duty',
+          time: 'Off-duty',
+          bg: 'bg-slate-50 text-slate-500 border-slate-200/60 hover:bg-slate-100 hover:border-slate-300',
+          dot: 'bg-slate-300',
+          icon: '💤'
+        };
+    }
   };
 
-  // Helper to calculate duration pixel height/percentage
-  const getDurationPerc = (startTime: string, endTime: string) => {
-    const [h1, m1] = startTime.split(':').map(Number);
-    const [h2, m2] = endTime.split(':').map(Number);
+  const handleAutoSchedule = () => {
+    const updated: typeof weeklySchedule = {};
+    const shiftChoices = ['DAY', 'NIGHT', 'ON_CALL', 'OFF'];
     
-    const minutes1 = h1 * 60 + m1;
-    const minutes2 = h2 * 60 + m2;
-    
-    const durationMins = minutes2 - minutes1;
-    const totalRangeMins = 840; // 14 hours
-    return (durationMins / totalRangeMins) * 100;
-  };
-
-  const toggleStaffActive = (staffId: string) => {
-    setLocalStaff(prev => prev.map(st => {
-      if (st.id === staffId) {
-        const nextState = !st.active;
-        addToast(`${st.name} is now marked as ${nextState ? 'Checked-In & On duty' : 'Off-duty'}`, 'info');
-        return { ...st, active: nextState };
+    allStaff.forEach((s, sIdx) => {
+      const shifts = [];
+      for (let day = 0; day < 7; day++) {
+        const dayHash = (sIdx + day) % 7;
+        if (dayHash === 0 || dayHash === 6) {
+          shifts.push('OFF');
+        } else {
+          // rota
+          const shiftIdx = (sIdx + day) % 3;
+          shifts.push(shiftChoices[shiftIdx]);
+        }
       }
-      return st;
-    }));
-  };
-
-  const handleCreateStaff = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStaffName) return;
-
-    const newMember: Staff = {
-      id: `staff-dynamic-${Date.now()}`,
-      name: newStaffName,
-      email: newStaffEmail || `${newStaffName.toLowerCase().replace(/\s+/g, '.')}@vethub.com`,
-      role: newStaffRole,
-      avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80',
-      active: true,
-      specialty: newStaffSpecialty || 'General Practice',
-      billingRate: newStaffRole === Role.DVM ? 140 : 55
-    };
-
-    setLocalStaff(prev => [...prev, newMember]);
-    if (onAddStaff) {
-      onAddStaff(newMember);
-    }
-
-    addToast(`Successfully registered ${newMember.name} to clinic duty roster`, 'success');
-    
-    // Clear form
-    setNewStaffName('');
-    setNewStaffSpecialty('');
-    setNewStaffEmail('');
-    setIsAddStaffOpen(false);
-  };
-
-  const handleCreateShift = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newShiftStaffId) {
-      addToast('Please select a staff member first', 'error');
-      return;
-    }
-
-    const matchedS = localStaff.find(s => s.id === newShiftStaffId);
-    if (!matchedS) return;
-
-    // Validate times
-    const [h1, m1] = newShiftStart.split(':').map(Number);
-    const [h2, m2] = newShiftEnd.split(':').map(Number);
-    if ((h1 * 60 + m1) >= (h2 * 60 + m2)) {
-      addToast('End time must be after start time', 'error');
-      return;
-    }
-
-    const newShift: Shift = {
-      id: `shift-dynamic-${Date.now()}`,
-      staffId: newShiftStaffId,
-      staffName: matchedS.name,
-      role: newShiftRole || (matchedS.role === Role.DVM ? 'Surgery' : matchedS.role === Role.TECH ? 'General' : 'Reception'),
-      dayIndex: Number(newShiftDay),
-      startTime: newShiftStart,
-      endTime: newShiftEnd
-    };
-
-    setShifts(prev => [...prev, newShift]);
-    addToast(`Scheduled ${newShift.staffName} for a ${newShift.role} shift on ${daysOfWeek[newShift.dayIndex].full}`, 'success');
-    setIsQuickShiftOpen(false);
-  };
-
-  const handleDeleteShift = (shiftId: string, name: string) => {
-    setShifts(prev => prev.filter(s => s.id !== shiftId));
-    addToast(`Removed shift assignment for ${name}`, 'info');
-  };
-
-  // Filter staff roster
-  const filteredStaff = useMemo(() => {
-    return localStaff.filter(st => {
-      const matchesRole = roleFilter === 'all' || st.role === roleFilter;
-      const matchesSearch = st.name.toLowerCase().includes(staffSearchQuery.toLowerCase()) || 
-                            st.role.toLowerCase().includes(staffSearchQuery.toLowerCase()) ||
-                            (st.specialty || '').toLowerCase().includes(staffSearchQuery.toLowerCase());
-      return matchesRole && matchesSearch;
+      updated[s.id] = shifts;
     });
-  }, [localStaff, roleFilter, staffSearchQuery]);
 
-  const handleExportPDF = () => {
-    addToast('Compiling secure operation logs into PDF layout. Downloading...', 'success');
+    setWeeklySchedule(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vet_weekly_schedule', JSON.stringify(updated));
+      window.dispatchEvent(new Event('vet_schedule_updated'));
+    }
+    alert('Smart scheduling complete! Recommended weekly shift rotations have been applied.');
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleClearSchedule = () => {
+    const updated: typeof weeklySchedule = {};
+    allStaff.forEach(s => {
+      updated[s.id] = Array(7).fill('OFF');
+    });
+    setWeeklySchedule(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vet_weekly_schedule', JSON.stringify(updated));
+      window.dispatchEvent(new Event('vet_schedule_updated'));
+    }
+    alert('Weekly schedule cleared. All staff have been reset to Off-duty status.');
+  };
+
+  const handleResetToDefaults = () => {
+    const defaultSchedule: typeof weeklySchedule = {};
+    allStaff.forEach((s, sIdx) => {
+      const shifts = [];
+      for (let day = 0; day < 7; day++) {
+        const dayHash = (sIdx + day) % 7;
+        if (dayHash === 0 || dayHash === 6) {
+          shifts.push('OFF');
+        } else if (dayHash === 1 || dayHash === 4) {
+          shifts.push('DAY');
+        } else if (dayHash === 2 || dayHash === 5) {
+          shifts.push('NIGHT');
+        } else {
+          shifts.push('ON_CALL');
+        }
+      }
+      defaultSchedule[s.id] = shifts;
+    });
+    setWeeklySchedule(defaultSchedule);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vet_weekly_schedule', JSON.stringify(defaultSchedule));
+      window.dispatchEvent(new Event('vet_schedule_updated'));
+    }
+    alert('Successfully restored default clinic rotation schedule.');
+  };
+
+  // Filter staff rows on scheduling board
+  const filteredScheduleStaff = useMemo(() => {
+    return allStaff.filter(s => {
+      const matchSearch = s.name.toLowerCase().includes(scheduleSearchQuery.toLowerCase()) || 
+                          s.email.toLowerCase().includes(scheduleSearchQuery.toLowerCase());
+      const matchRole = scheduleRoleFilter === 'ALL' || s.role === scheduleRoleFilter;
+      return matchSearch && matchRole;
+    });
+  }, [allStaff, scheduleSearchQuery, scheduleRoleFilter]);
+
+  // Active Selected Staff
+  const selectedStaff = useMemo(() => {
+    return allStaff.find(s => s.id === selectedStaffId) || allStaff[0] || null;
+  }, [allStaff, selectedStaffId]);
+
+  // Filtering clinicians
+  const filteredStaff = useMemo(() => {
+    return allStaff.filter(s => {
+      const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          s.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchRole = roleFilter === 'ALL' || s.role === roleFilter;
+      return matchSearch && matchRole;
+    });
+  }, [allStaff, searchQuery, roleFilter]);
+
+  // Toggle shift coverage active status
+  const handleToggleActive = (staffId: string) => {
+    const nextStaffList = allStaff.map(s => {
+      if (s.id === staffId) {
+        const nextState = !s.active;
+        return { ...s, active: nextState };
+      }
+      return s;
+    });
+    onUpdateStaff(nextStaffList);
+  };
+
+  // Toggle permission flag for a staff member
+  const handleTogglePermission = (staffId: string, permission: string) => {
+    const nextStaffList = allStaff.map(s => {
+      if (s.id === staffId) {
+        const currentPerms = s.permissions || [];
+        const updatedPerms = currentPerms.includes(permission)
+          ? currentPerms.filter(p => p !== permission)
+          : [...currentPerms, permission];
+        return { ...s, permissions: updatedPerms };
+      }
+      return s;
+    });
+    onUpdateStaff(nextStaffList);
+    
+    const staffName = allStaff.find(s => s.id === staffId)?.name || 'Staff';
+    alert(`System permissions configured!\n${staffName}'s access credentials updated for key: [${permission}].`);
+  };
+
+  // Add new clinical staff member
+  const handleRegisterStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newEmail) return;
+
+    // Create realistic initial permissions based on role
+    const initialPerms: string[] = [];
+    if (newRole === Role.DVM || newRole === Role.OWNER || newRole === Role.MANAGER) {
+      initialPerms.push('SOAP_RECORDS_EDIT', 'BILLING_INVOICE', 'PHARMACY_Dispense', 'STAFF_PERMISSIONS_EDIT');
+    } else if (newRole === Role.TECH) {
+      initialPerms.push('SOAP_RECORDS_EDIT');
+    } else if (newRole === Role.RECEPTION) {
+      initialPerms.push('BILLING_INVOICE');
+    } else if (newRole === Role.FINANCE) {
+      initialPerms.push('BILLING_INVOICE');
+    }
+
+    const newStaffObj: Staff = {
+      id: `st-new-${Date.now()}`,
+      name: newName,
+      email: newEmail,
+      role: newRole,
+      avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newName)}`,
+      active: true,
+      specialty: newSpecialty || undefined,
+      billingRate: newRate || undefined,
+      permissions: initialPerms
+    };
+
+    onAddStaff(newStaffObj);
+    setSelectedStaffId(newStaffObj.id);
+    
+    // Clear fields
+    setNewName('');
+    setNewEmail('');
+    setNewSpecialty('');
+    setNewRate(120);
+    setShowAddForm(false);
+    alert(`Success! Clinician ${newName} has been dynamically onboarded and registered into the active shifts index.`);
   };
 
   return (
-    <div className="space-y-6" id="staff-management-view">
-      {/* Subview Selector Tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/50 max-w-sm shadow-xs mb-4">
+    <div className="space-y-6" id="clinical-staff-management-page">
+      
+      {/* Page Header */}
+      <div className="border-b border-[#eff4ff] pb-4 flex flex-col md:flex-row justify-between md:items-center gap-3">
+        <div>
+          <h1 className="text-xl font-bold font-sans text-[#0d1c2e] tracking-tight flex items-center gap-2">
+            <ShieldCheck className="w-5.5 h-5.5 text-[#00647c]" /> Staff Roster, Shift Calendars &amp; Permissions Mode
+          </h1>
+          <p className="text-xs text-[#545d62] font-semibold mt-0.5">
+            Audit clinic veterinarians, manage shift cover coverage status, coordinate security credentials, and onboard practitioners.
+          </p>
+        </div>
+
         <button
-          type="button"
-          onClick={() => setActiveSubView('scheduler')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeSubView === 'scheduler' 
-              ? 'bg-[#00647c] text-white shadow-xs' 
-              : 'text-[#3e484d] hover:bg-slate-50'
-          }`}
+          onClick={() => setShowAddForm(true)}
+          className="px-3.5 py-2 bg-[#00647c] hover:bg-cyan-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm hover:scale-[1.01] transition-all cursor-pointer"
         >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Scheduler</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveSubView('permissions');
-            if (localStaff.length > 0 && !selectedStaffIdPermissions) {
-              setSelectedStaffIdPermissions(localStaff[0].id);
-            }
-          }}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeSubView === 'permissions' 
-              ? 'bg-[#00647c] text-white shadow-xs' 
-              : 'text-[#3e484d] hover:bg-slate-50'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Permissions</span>
+          <UserPlus className="w-4 h-4" /> Register Clinic Faculty
         </button>
       </div>
 
-      {activeSubView === 'scheduler' && (
-        <>
-          {/* Top dashboard action bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-outline-variant/40 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Location Selector */}
-          <div className="relative">
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg py-2 pl-3 pr-8 text-xs font-semibold text-[#0d1c2e] focus:outline-none focus:ring-1 focus:ring-[#00647c] cursor-pointer"
-            >
-              <option value="Central Clinic">📍 Central Clinic</option>
-              <option value="West Broward Branch">📍 West Broward Branch</option>
-              <option value="Northside Urgent PetCare">📍 Northside Urgent PetCare</option>
-            </select>
-          </div>
-
-          {/* Week / Month Toggles */}
-          <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                viewMode === 'week' 
-                  ? 'bg-white shadow-xs text-[#00647c]' 
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                viewMode === 'month' 
-                  ? 'bg-white shadow-xs text-[#00647c]' 
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              Month
-            </button>
-          </div>
-
-          {/* Chevron Navigation */}
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentWeekOffset(prev => prev - 1)}
-              className="p-1.5 hover:bg-slate-100 rounded-full border border-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-bold text-[#0d1c2e]">
-              {currentWeekOffset === 0 ? 'May 15 - May 21, 2026' : `Week (Offset: ${currentWeekOffset})`}
-            </span>
-            <button 
-              onClick={() => setCurrentWeekOffset(prev => prev + 1)}
-              className="p-1.5 hover:bg-slate-100 rounded-full border border-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => addToast('Successfully published current weekly clinical schedule to portals', 'success')}
-            className="px-4 py-2 border border-[#00647c] text-[#00647c] hover:bg-[#00647c]/5 rounded-lg text-xs font-bold transition-all hover:shadow-xs cursor-pointer"
-          >
-            Publish Schedule
-          </button>
-          <button
-            onClick={() => setIsAddStaffOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#00647c] hover:bg-[#007f9d] text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Add Staff Member</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Split Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* LEFT PANEL: Staff List (1/3 Width) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4 shadow-xs h-full min-h-[500px]">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <h3 className="font-bold text-[#0d1c2e] text-xs uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#00647c]" />
-              <span>Veterinary Roster</span>
-            </h3>
-            <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
-              {filteredStaff.length} Listed
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {/* Search Input */}
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                <Search className="w-4 h-4" id="staff-search-icon" />
-              </span>
-              <input 
-                type="text"
-                value={staffSearchQuery}
-                onChange={(e) => setStaffSearchQuery(e.target.value)}
-                placeholder="Search staff, specialties, etc..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-4 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00647c]"
-              />
-            </div>
-
-            {/* Role Filter Pills */}
-            <div className="flex flex-wrap gap-1">
-              {[
-                { label: 'All', id: 'all' },
-                { label: 'DVM', id: 'DVM' },
-                { label: 'Techs', id: 'TECH' },
-                { label: 'Reception', id: 'RECEPTION' }
-              ].map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setRoleFilter(p.id as any)}
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-tight transition-all cursor-pointer ${
-                    roleFilter === p.id 
-                      ? 'bg-[#00647c] text-white' 
-                      : 'bg-slate-100 hover:bg-slate-200 text-[#3e484d]'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Roster Cards */}
-          <div className="flex-1 overflow-y-auto space-y-2 max-h-[480px] pr-1">
-            {filteredStaff.map(member => (
-              <div 
-                key={member.id}
-                className={`p-3 rounded-lg border transition-all flex items-center justify-between ${
-                  member.active 
-                    ? 'border-slate-200 bg-white hover:border-[#00647c]/30 hover:bg-slate-50/50' 
-                    : 'border-slate-100 bg-slate-50/70 opacity-60'
-                }`}
+      {/* QUICK ADD FACTULTY MODAL BLOCK */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-[#00647c]" /> Register New Clinical Faculty
+              </h3>
+              <button 
+                onClick={() => setShowAddForm(false)}
+                className="p-1 text-slate-400 hover:bg-slate-50 rounded-full"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
-                    <img 
-                      src={member.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80'} 
-                      alt={member.name}
-                      referrerPolicy="no-referrer"
-                      className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                    />
-                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                      member.active ? 'bg-green-500' : 'bg-slate-350'
-                    }`} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-[#0d1c2e] text-xs">
-                      {member.name}
-                    </h4>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase tracking-wider ${
-                        member.role === Role.DVM ? 'bg-green-100 text-green-800' :
-                        member.role === Role.TECH ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-850'
-                      }`}>
-                        {member.role === Role.OWNER ? 'MD/OWNER' : member.role}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-bold">
-                        {member.specialty || 'General Care'}
-                      </span>
-                    </div>
-                  </div>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterStaff} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-650 mb-1">Full Clinical Name</label>
+                <input
+                  type="text" required placeholder="e.g. Dr. Emily Carter, DVM"
+                  value={newName} onChange={e => setNewName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-650 mb-1">Corporate Email Address</label>
+                <input
+                  type="email" required placeholder="e.g. emily.carter@hospital.com"
+                  value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-650 mb-1">Active Medical Role</label>
+                  <select
+                    value={newRole} onChange={e => setNewRole(e.target.value as Role)}
+                    className="w-full p-2.5 bg-white border rounded-xl"
+                  >
+                    <option value={Role.DVM}>Veterinarian (DVM)</option>
+                    <option value={Role.TECH}>Vet Technician (RVT)</option>
+                    <option value={Role.RECEPTION}>Reception Staff</option>
+                    <option value={Role.MANAGER}>Practice Manager</option>
+                    <option value={Role.FINANCE}>Financial Accountant</option>
+                  </select>
                 </div>
 
-                {/* Active Checkbox / Toggle Switch */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-650 mb-1">DVM Medical Specialty</label>
+                  <input
+                    type="text" placeholder="e.g. Orthopedics, Cardiology"
+                    value={newSpecialty} onChange={e => setNewSpecialty(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-650 mb-1">Clinic Booking Rate or Wage Rate ($/hr)</label>
+                <input
+                  type="number" min={50} max={500} defaultValue={120}
+                  value={newRate} onChange={e => setNewRate(Number(e.target.value))}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl font-mono font-bold"
+                />
+              </div>
+
+              <div className="bg-blue-50/50 p-2.5 rounded-xl border text-[10.5px] leading-relaxed text-slate-600">
+                🚀 New staff profiles automatically generate random customized avatars and establish default secure credentials matching their roles.
+              </div>
+
+              <div className="flex gap-2 pt-3">
                 <button
-                  type="button"
-                  onClick={() => toggleStaffActive(member.id)}
-                  className="p-1 hover:bg-slate-100 rounded-lg text-[#00647c] transition-colors cursor-pointer"
-                  title={member.active ? "Status: Active Duty" : "Status: Off Duty"}
+                  type="button" onClick={() => setShowAddForm(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
                 >
-                  {member.active ? (
-                    <ToggleRight className="w-7 h-7 text-[#00647c] shrink-0" />
-                  ) : (
-                    <ToggleLeft className="w-7 h-7 text-slate-350 shrink-0" />
-                  )}
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#00647c] hover:bg-cyan-800 text-white font-bold rounded-xl shadow-xs"
+                >
+                  Confirm Registration
                 </button>
               </div>
-            ))}
-
-            {filteredStaff.length === 0 && (
-              <div className="text-center py-10 text-slate-400 text-xs">
-                No veterinary staff match search criteria
-              </div>
-            )}
+            </form>
           </div>
-
-          {/* Add Quick Role Button */}
-          <button
-            onClick={() => {
-              setIsQuickShiftOpen(true);
-            }}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 border border-dashed border-slate-200 hover:border-[#00647c]/50 bg-slate-50/50 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-[#00647c] text-xs font-bold transition-all transition-colors cursor-pointer select-none"
-          >
-            <Plus className="w-4 h-4 shrink-0 text-[#00647c]" />
-            <span>Schedule Shift Assignment</span>
-          </button>
         </div>
+      )}
 
-        {/* RIGHT PANEL: Week Schedule Grid (2/3 Width) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shadow-xs">
+      {/* Tab Switcher */}
+      <div className="flex border-[#EFF4FF] border-b">
+        <button
+          onClick={() => setActiveTab('ROSTER')}
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all leading-none flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'ROSTER'
+              ? 'border-[#00647c] text-[#00647c]'
+              : 'border-transparent text-slate-500 hover:text-slate-850'
+          }`}
+        >
+          🧑‍⚕️ Roster & Permissions
+        </button>
+        <button
+          onClick={() => setActiveTab('SCHEDULING')}
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all leading-none flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'SCHEDULING'
+              ? 'border-[#00647c] text-[#00647c]'
+              : 'border-transparent text-slate-500 hover:text-slate-855'
+          }`}
+        >
+          📅 Planner Panel
+        </button>
+      </div>
+
+      {activeTab === 'ROSTER' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Week Calendar Headers */}
-          <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-slate-200 bg-slate-50/85">
-            <div className="h-12 flex items-center justify-center">
-              <Clock className="w-4 h-4 text-slate-400" />
-            </div>
-            {daysOfWeek.map((day, idx) => {
-              const isWedActive = idx === 2; // Wednesday May 17 is active in mockup
-              return (
-                <div 
-                  key={day.name} 
-                  className={`h-12 flex flex-col items-center justify-center border-l border-slate-200/50 ${
-                    isWedActive ? 'bg-[#00647c]/5' : ''
-                  }`}
-                >
-                  <span className={`text-[9px] font-bold uppercase ${
-                    isWedActive ? 'text-[#00647c]' : 'text-slate-400'
-                  }`}>
-                    {day.name}
-                  </span>
-                  <span className={`text-xs font-extrabold ${
-                    isWedActive ? 'text-[#00647c] font-black' : 'text-[#0d1c2e]'
-                  }`}>
-                    {day.dateNum}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Calendar Grid hours layout */}
-          <div className="relative flex-grow min-h-[500px] overflow-y-auto">
+          {/* LEFT COLUMN: STAFF LIST */}
+          <div className="lg:col-span-5 bg-white border rounded-2xl p-5 shadow-xs space-y-4">
             
-            {/* Visual Red Current Time Line */}
-            <div className="absolute top-[180px] inset-x-0 h-0.5 bg-red-500/70 z-10 pointer-events-none">
-              <div className="absolute left-1 md:left-14 -top-1 w-2.5 h-2.5 bg-red-650 rounded-full animate-ping" />
-              <div className="absolute left-1 md:left-14 -top-1 w-2.5 h-2.5 bg-red-600 rounded-full shadow-md" />
-              <div className="absolute -top-3.5 left-16 bg-red-500 text-white text-[8px] font-mono font-bold px-1 py-0.2 rounded leading-none">
-                09:15 AM Live
+            <div className="flex flex-col gap-3">
+              
+              {/* Search Input */}
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Search className="w-3.5 h-3.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search staff by name or email..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full text-xs pl-8.5 pr-4 py-2.5 bg-slate-50 border border-slate-200 hover:bg-white focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-350 transition-colors"
+                />
               </div>
+
+              {/* Role filter buttons */}
+              <div className="flex flex-wrap gap-1 border-b pb-3 border-slate-100">
+                {(['ALL', Role.DVM, Role.TECH, Role.RECEPTION, Role.MANAGER, Role.FINANCE] as const).map(role => (
+                  <button
+                    key={role}
+                    onClick={() => setRoleFilter(role)}
+                    className={`text-[9.5px] font-bold py-1 px-2.5 rounded-lg border transition-all select-none ${
+                      roleFilter === role
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-3xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {role === 'ALL' ? 'Show All' : role}
+                  </button>
+                ))}
+              </div>
+
             </div>
 
-            {/* Time Slots rows (7 AM to 9 PM = 14 intervals) */}
-            {Array.from({ length: 14 }).map((_, i) => {
-              const hourNum = 7 + i;
-              const formattedHour = hourNum < 12 
-                ? `${hourNum}:00 AM` 
-                : hourNum === 12 
-                  ? '12:00 PM' 
-                  : `${hourNum - 12}:00 PM`;
-
-              return (
-                <div 
-                  key={i}
-                  className="grid grid-cols-[60px_repeat(7,1fr)] h-12 border-b border-slate-100 hover:bg-slate-50/20"
-                >
-                  {/* Left Column labels */}
-                  <div className="flex items-start justify-center pt-1.5 text-[9px] font-mono text-slate-400 font-semibold md:tracking-tight border-r border-slate-100">
-                    {hourNum === 7 || hourNum % 2 === 1 ? formattedHour.replace(' AM', '').replace(' PM', '') : ''}
-                  </div>
-                  {/* Columns for Mon-Sun */}
-                  {Array.from({ length: 7 }).map((_, colIdx) => (
-                    <div 
-                      key={colIdx} 
-                      onClick={() => {
-                        setNewShiftDay(colIdx);
-                        setNewShiftStart(`${hourNum < 10 ? '0' + hourNum : hourNum}:00`);
-                        setNewShiftEnd(`${(hourNum + 4) < 10 ? '0' + (hourNum + 4) : Math.min(21, hourNum + 4)}:00`);
-                        setIsQuickShiftOpen(true);
-                      }}
-                      className={`border-l border-slate-100/70 transition-colors hover:bg-[#00647c]/3 cursor-pointer ${
-                        colIdx === 2 ? 'bg-[#00647c]/[0.015]' : ''
-                      }`}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-
-            {/* Placed Shifts Stack elements with high resolution absolute positioning */}
-            <div className="absolute inset-0 pl-[60px] pointer-events-none">
-              <div className="grid grid-cols-7 h-full pointer-events-none">
-                {Array.from({ length: 7 }).map((_, colIdx) => {
-                  const dayShifts = shifts.filter(s => s.dayIndex === colIdx);
+            {/* Core scrollable clinician list */}
+            <div className="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
+              {filteredStaff.length === 0 ? (
+                <p className="text-xs text-slate-500 py-8 text-center bg-slate-50 border rounded-xl border-dashed">
+                  No hospital staff match your search criteria.
+                </p>
+              ) : (
+                filteredStaff.map((staff) => {
+                  const isSelected = selectedStaff?.id === staff.id;
                   return (
-                    <div key={colIdx} className="relative h-full px-1 py-0.5 pointer-events-none">
-                      {dayShifts.map((sh, sIdx) => {
-                        const topPerc = getTimeOffsetPerc(sh.startTime);
-                        const durPerc = getDurationPerc(sh.startTime, sh.endTime);
-                        
-                        const staffMember = localStaff.find(m => m.id === sh.staffId);
-                        const isInactive = staffMember && !staffMember.active;
+                    <div
+                      key={staff.id}
+                      onClick={() => setSelectedStaffId(staff.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-[#eff4ff]/60 border-[#00647c] shadow-2xs'
+                          : 'bg-white hover:bg-slate-50/70 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={staff.avatar} 
+                          alt={staff.name} 
+                          referrerPolicy="no-referrer"
+                          className="w-9 h-9 rounded-full object-cover border bg-slate-50 shrink-0" 
+                        />
+                        <div className="truncate max-w-[140px] sm:max-w-[200px]">
+                          <h4 className="text-xs font-bold text-slate-800 leading-snug">{staff.name}</h4>
+                          <p className="text-[10px] text-slate-400 truncate leading-none mt-1">{staff.email}</p>
+                        </div>
+                      </div>
 
-                        // Distinct colors based on shift roles
-                        const colorStyles = 
-                          sh.role === 'Surgery' 
-                            ? 'bg-emerald-50 text-emerald-900 border-emerald-250 hover:bg-emerald-100' :
-                          sh.role === 'Lab' 
-                            ? 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100' :
-                          sh.role === 'Reception'
-                            ? 'bg-amber-50 text-amber-900 border-amber-250 hover:bg-amber-100' :
-                            'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100';
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded border uppercase ${
+                          staff.role === Role.DVM ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          staff.role === Role.TECH ? 'bg-sky-50 text-sky-800 border-sky-200' : 
+                          staff.role === Role.RECEPTION ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {staff.role}
+                        </span>
 
-                        const colorBadge = 
-                          sh.role === 'Surgery' ? 'bg-emerald-200 text-emerald-800' :
-                          sh.role === 'Lab' ? 'bg-slate-200 text-slate-700' :
-                          sh.role === 'Reception' ? 'bg-amber-200 text-amber-800' :
-                          'bg-sky-200 text-sky-800';
-
-                        return (
-                          <div 
-                            key={sh.id}
-                            className={`absolute left-1 right-1 border rounded-lg p-2 overflow-hidden shadow-xs transition-all pointer-events-auto cursor-pointer ${colorStyles} ${
-                              isInactive ? 'opacity-30 line-through grayscale border-dashed border-slate-300' : ''
-                            }`}
-                            style={{ 
-                              top: `${topPerc}%`, 
-                              height: `${durPerc}%`,
-                              minHeight: '44px',
-                              zIndex: 20 + sIdx
-                            }}
-                          >
-                            <div className="flex items-center justify-between pointer-events-none">
-                              <span className={`text-[8px] font-black uppercase px-1 rounded ${colorBadge}`}>
-                                {sh.role}
-                              </span>
-                              <button 
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteShift(sh.id, sh.staffName);
-                                }}
-                                className="text-slate-400 hover:text-red-500 pointer-events-auto p-0.5 rounded cursor-pointer"
-                                title="Remove Assignment"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <p className="text-[10px] font-extrabold mt-1 tracking-tight truncate leading-tight">
-                              {sh.staffName}
-                            </p>
-                            <p className="text-[9px] font-mono opacity-80 leading-none">
-                              {sh.startTime} - {sh.endTime}
-                            </p>
-
-                            {/* Render sub-appointment pills if surgery (Fidelity feature) */}
-                            {sh.appointments && sh.appointments.length > 0 && (
-                              <div className="mt-1.5 space-y-1 pointer-events-none hidden md:block">
-                                {sh.appointments.map((apt, idx) => (
-                                  <div key={idx} className="bg-white/70 border-l-2 border-emerald-600 rounded text-[9px] font-bold px-1 py-0.5 text-emerald-900 break-words">
-                                    {apt}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                        {/* Direct coverage shift switch */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActive(staff.id);
+                          }}
+                          title={staff.active ? "Currently on shift. Click to set off-duty." : "Currently off-duty. Click to set active coverage."}
+                          className="focus:outline-none hover:scale-105 transition-transform"
+                        >
+                          {staff.active ? (
+                            <ToggleRight className="w-6.5 h-6.5 text-emerald-600 cursor-pointer" />
+                          ) : (
+                            <ToggleLeft className="w-6.5 h-6.5 text-slate-350 cursor-pointer" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   );
-                })}
+                })
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: DETAIL ASSIGNMENTS & PERMISSIONS */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {selectedStaff ? (
+              <div className="bg-white border rounded-2xl p-5 shadow-xs space-y-5">
+                
+                {/* Detailed Card Bio */}
+                <div className="flex items-start justify-between gap-4 border-b pb-4">
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={selectedStaff.avatar}
+                      alt={selectedStaff.name}
+                      referrerPolicy="no-referrer"
+                      className="w-14 h-14 rounded-full object-cover border bg-slate-50"
+                    />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-855 flex items-center gap-1.5">
+                        {selectedStaff.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{selectedStaff.email}</p>
+                      
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="text-[9px] bg-slate-100 px-2 py-0.5 font-bold rounded-lg uppercase">
+                          Role: {selectedStaff.role}
+                        </span>
+                        {selectedStaff.specialty && (
+                          <span className="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 font-bold rounded-lg border border-indigo-150">
+                            🎓 {selectedStaff.specialty}
+                          </span>
+                        )}
+                        
+                        {/* Active status indicator */}
+                        <span className={`text-[9px] px-2 py-0.5 font-bold rounded-lg ${
+                          selectedStaff.active 
+                            ? 'bg-emerald-50 text-emerald-800' 
+                            : 'bg-rose-50 text-rose-800'
+                        }`}>
+                          {selectedStaff.active ? '● Coverage Roster Active' : '○ Standby / Off Duty'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider font-mono">Service Rate Rate</span>
+                    <span className="text-base font-bold font-mono text-[#00647c]">${selectedStaff.billingRate || 120}/hr</span>
+                  </div>
+                </div>
+
+                {/* Roster shift schedules details */}
+                <div className="p-4 bg-[#eff4ff]/30 border border-slate-150 rounded-xl space-y-2.5">
+                  <h4 className="text-xs font-bold text-slate-750 uppercase tracking-widest flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-[#00647c]" /> Shift Coverage Status Roster
+                  </h4>
+                  <p className="text-[10.5px] leading-relaxed text-slate-550 font-semibold">
+                    When toggled as <strong>Active</strong>, the practitioner is actively cataloged for automated surgery splits, on-duty technical monitoring tasks checklists, and the direct clinician lookup menus at reception desk bookings.
+                  </p>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      onClick={() => handleToggleActive(selectedStaff.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-[10.5px] tracking-wide cursor-pointer transition-all ${
+                        selectedStaff.active
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {selectedStaff.active ? '✓ Cover Shifts Active Office-Wide' : 'Set Active for Shift Support'}
+                    </button>
+                    <p className="text-[10px] text-slate-400">
+                      Currently: {selectedStaff.active ? 'Accepting medical admissions.' : 'Not active.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Security permissions config */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1 border-b pb-2">
+                    <ShieldCheck className="w-4.5 h-4.5 text-indigo-500" /> Access Authorization Control Matrix
+                  </h4>
+                  <p className="text-[10.5px] text-slate-500">
+                    Enable or withdraw system actions for this specific credentials key based on standard HIPAA or clinical guidelines guidelines:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                    
+                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
+                      <input
+                        type="checkbox"
+                        id="perm-soap"
+                        checked={(selectedStaff.permissions || []).includes('SOAP_RECORDS_EDIT')}
+                        onChange={() => handleTogglePermission(selectedStaff.id, 'SOAP_RECORDS_EDIT')}
+                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
+                      />
+                      <label htmlFor="perm-soap" className="select-none cursor-pointer space-y-0.5">
+                        <span className="block text-xs font-bold text-slate-850">SOAP EHR Editing</span>
+                        <span className="block text-[9.5px] text-slate-400">Authorizes practitioner charting, writeups and locking clinical treatment notes.</span>
+                      </label>
+                    </div>
+
+                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
+                      <input
+                        type="checkbox"
+                        id="perm-bill"
+                        checked={(selectedStaff.permissions || []).includes('BILLING_INVOICE')}
+                        onChange={() => handleTogglePermission(selectedStaff.id, 'BILLING_INVOICE')}
+                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
+                      />
+                      <label htmlFor="perm-bill" className="select-none cursor-pointer space-y-0.5">
+                        <span className="block text-xs font-bold text-slate-850">Billing Folder Settlement</span>
+                        <span className="block text-[9.5px] text-slate-400">Authorizes patient invoice adjustments, check-out payments, and ledger logs.</span>
+                      </label>
+                    </div>
+
+                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
+                      <input
+                        type="checkbox"
+                        id="perm-pharm"
+                        checked={(selectedStaff.permissions || []).includes('PHARMACY_Dispense')}
+                        onChange={() => handleTogglePermission(selectedStaff.id, 'PHARMACY_Dispense')}
+                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
+                      />
+                      <label htmlFor="perm-pharm" className="select-none cursor-pointer space-y-0.5">
+                        <span className="block text-xs font-bold text-slate-850">Prescription Dispensation</span>
+                        <span className="block text-[9.5px] text-slate-400">Permits dispensing critical pharmaceutical medications and dangerous narcotics.</span>
+                      </label>
+                    </div>
+
+                    <div className="p-3.5 border rounded-xl flex items-start gap-2 bg-slate-50/50 hover:bg-white transition-colors">
+                      <input
+                        type="checkbox"
+                        id="perm-staff"
+                        checked={(selectedStaff.permissions || []).includes('STAFF_PERMISSIONS_EDIT')}
+                        onChange={() => handleTogglePermission(selectedStaff.id, 'STAFF_PERMISSIONS_EDIT')}
+                        className="mt-0.5 rounded text-[#00647c] cursor-pointer"
+                      />
+                      <label htmlFor="perm-staff" className="select-none cursor-pointer space-y-0.5">
+                        <span className="block text-xs font-bold text-slate-850">Faculty Configuration</span>
+                        <span className="block text-[9.5px] text-slate-400">Grants operational power to modify roster duty shifts, catalogs and security access keys.</span>
+                      </label>
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+            ) : (
+              <div className="bg-slate-50 p-12 text-center rounded-2xl border border-dashed border-slate-300">
+                <p className="text-xs text-slate-500 font-medium">Select a practitioner from the faculty list directory to audit active shift schedules or update operational permissions.</p>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      ) : (
+        <div className="space-y-6 animate-in fade-in-50 duration-200">
+          
+          {/* Quick Schedule Actions Banner & Filters */}
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+            
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 leading-none">
+                  📅 Clinician Weekly Schedule Control Center
+                </h3>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Click on any staff member's day cell to cycle through shifts. All changes sync in real-time across clinical dashboards.
+                </span>
+              </div>
+              
+              {/* Quick actions row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoSchedule}
+                  className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:-translate-y-0.5 duration-150"
+                  title="Auto-generate rotation schedule"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Auto-Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToDefaults}
+                  className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:-translate-y-0.5 duration-150"
+                  title="Restore default schedule"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset Default
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearSchedule}
+                  className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:-translate-y-0.5 duration-150"
+                  title="Set all to 'Off-duty'"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Clear Schedule
+                </button>
               </div>
             </div>
 
-          </div>
-        </div>
+            {/* Filter controls row */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              
+              {/* Filter Search */}
+              <div className="relative w-full sm:max-w-xs">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Search className="w-3.5 h-3.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search name or email..."
+                  value={scheduleSearchQuery}
+                  onChange={e => setScheduleSearchQuery(e.target.value)}
+                  className="w-full text-xs pl-8.5 pr-4 py-2 bg-slate-50 border border-slate-200 hover:bg-white focus:bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-350 transition-colors"
+                />
+              </div>
 
-      </div>
+              {/* Filter role selector */}
+              <div className="flex flex-wrap gap-1">
+                {(['ALL', Role.DVM, Role.TECH, Role.RECEPTION, Role.MANAGER, Role.FINANCE] as const).map(role => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setScheduleRoleFilter(role)}
+                    className={`text-[9.5px] font-bold py-1 px-2.5 rounded-lg border transition-all select-none cursor-pointer ${
+                      scheduleRoleFilter === role
+                        ? 'bg-[#00647c] text-white border-[#00647c] shadow-3xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-650 border-slate-200'
+                    }`}
+                  >
+                    {role === 'ALL' ? 'All Roles' : role}
+                  </button>
+                ))}
+              </div>
 
-      {/* FOOTER: Live shift telemetry footer bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-        <div className="flex flex-wrap items-center gap-6 text-xs text-slate-500 font-bold">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-[#00647c]/10 rounded-lg text-[#00647c]">
-              <Clock className="w-4 h-4" />
             </div>
+
+          </div>
+
+          {/* MAIN SCHEDULE MATRIX GRID */}
+          <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden" id="staff-scheduling-board">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                
+                <thead>
+                  <tr className="bg-slate-50/75 border-b border-slate-150">
+                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono w-[200px]">
+                      Clinical Faculty &amp; Role
+                    </th>
+                    {DAYS.map(day => (
+                      <th key={day.key} className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono text-center">
+                        {day.fullLabel}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {filteredScheduleStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-12 text-center text-xs text-slate-400 font-semibold bg-slate-50/50">
+                        No hospital staff match your active filter criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredScheduleStaff.map(staff => {
+                      const staffShifts = weeklySchedule[staff.id] || Array(7).fill('OFF');
+                      return (
+                        <tr key={staff.id} className="hover:bg-slate-50/30 transition-colors">
+                          
+                          {/* Left Column: Staff Info Cell */}
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={staff.avatar}
+                                alt={staff.name}
+                                referrerPolicy="no-referrer"
+                                className="w-8 h-8 rounded-full border bg-slate-50 shrink-0 object-cover"
+                              />
+                              <div className="truncate">
+                                <h4 className="text-xs font-bold text-slate-800 leading-tight block truncate max-w-[120px]">
+                                  {staff.name}
+                                </h4>
+                                <span className={`inline-block mt-1 text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase leading-none ${
+                                  staff.role === Role.DVM ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                  staff.role === Role.TECH ? 'bg-sky-50 text-sky-800 border-sky-200' : 
+                                  staff.role === Role.RECEPTION ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-755'
+                                }`}>
+                                  {staff.role}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 7 Shift Cells */}
+                          {DAYS.map((day, dayIdx) => {
+                            const currentShiftCode = staffShifts[dayIdx] || 'OFF';
+                            const details = getShiftDetails(currentShiftCode);
+                            
+                            const handleCellClick = () => {
+                              const nextMap: { [key: string]: string } = {
+                                'OFF': 'DAY',
+                                'DAY': 'NIGHT',
+                                'NIGHT': 'ON_CALL',
+                                'ON_CALL': 'OFF'
+                              };
+                              const nextShift = nextMap[currentShiftCode] || 'OFF';
+                              handleUpdateShift(staff.id, dayIdx, nextShift);
+                            };
+
+                            return (
+                              <td key={day.key} className="p-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={handleCellClick}
+                                  className={`w-full max-w-[124px] mx-auto p-2.5 rounded-xl border text-left flex flex-col space-y-1 transition-all duration-150 cursor-pointer hover:shadow-sm hover:-translate-y-0.5 ${details.bg}`}
+                                  title={`${staff.name} - ${day.fullLabel}: Current Shift [${details.label}] - Click to rotate`}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span className="text-[10px] font-bold flex items-center gap-1 truncate font-sans">
+                                      <span>{details.icon}</span> <span>{details.label}</span>
+                                    </span>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${details.dot}`} />
+                                  </div>
+                                  <span className="text-[8px] font-mono font-semibold text-slate-450 block leading-none pt-0.5">
+                                    {details.time}
+                                  </span>
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+
+              </table>
+            </div>
+          </div>
+
+          {/* CLINICAL COVERAGE STATISTICS & LOAD DENSITY ANALYST */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4" id="coverage-safety-analysis">
             <div>
-              <p className="text-[9px] text-slate-450 uppercase leading-none">Total Scheduled Hours</p>
-              <p className="text-sm font-black text-[#0d1c2e]">{computedTotalHours} hrs</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 border-l border-slate-100 pl-6">
-            <div className="p-2 bg-green-50 rounded-lg text-green-700">
-              <Users className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-[9px] text-slate-450 uppercase leading-none">Active Staff On Duty</p>
-              <p className="text-sm font-black text-[#0d1c2e]">{staffOnDutyCount}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-          >
-            <FileText className="w-3.5 h-3.5 text-slate-400" />
-            <span>Export PDF</span>
-          </button>
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5 text-slate-400" />
-            <span>Print Grid</span>
-          </button>
-        </div>
-      </div>
-        </>
-      )}
-
-      {/* ACCESS RULES & DYNAMIC PERMISSIONS CONTROLLER */}
-      {activeSubView === 'permissions' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-xs" id="permissions-manager-root">
-          {/* Left Column: Staff Directory Selection */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4 shadow-sm h-full min-h-[500px]">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-              <h3 className="font-extrabold text-[#0d1c2e] text-xs uppercase tracking-wider flex items-center gap-2 font-sans">
-                <Users className="w-4 h-4 text-[#00647c]" />
-                <span>Practitioner Directory</span>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                📊 Daily Hospital Staffing Density &amp; Safety Level
               </h3>
-              <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
-                {localStaff.length} Members
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Visual analysis audits veterinarian and technician load each day to flag safety shortages. Maintain at least 1 DVM for patient safety.
               </span>
             </div>
 
-            {/* Directory Staff List Cards */}
-            <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[600px] pr-1">
-              {localStaff.map((st) => (
-                <button
-                  type="button"
-                  key={st.id}
-                  onClick={() => setSelectedStaffIdPermissions(st.id)}
-                  className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
-                    selectedStaffIdPermissions === st.id
-                      ? 'border-[#00647c] bg-[#00647c]/5 shadow-xs scale-[1.01]'
-                      : 'border-slate-100 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#0d1c2e] text-white flex items-center justify-center font-bold text-xs ring-2 ring-[#00647c]/20">
-                      {st.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-bold text-xs text-[#0d1c2e] leading-snug">{st.name}</p>
-                      <p className="text-[10px] text-slate-500 font-medium leading-none mt-1">{st.role}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 font-sans">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold uppercase tracking-wide opacity-90 ${
-                      st.active !== false 
-                        ? 'bg-emerald-50 text-emerald-700' 
-                        : 'bg-rose-50 text-rose-700'
-                    }`}>
-                      {st.active !== false ? 'Active' : 'On Leave'}
-                    </span>
-                    <span className="text-[9px] font-mono text-slate-400 font-bold">
-                      {(st.permissions || getRoleDefaultPermissions(st.role)).length} rules
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+              {DAYS.map((day, dayIdx) => {
+                let scheduledDVMs = 0;
+                let scheduledTechs = 0;
+                let scheduledOthers = 0;
 
-            <button
-              type="button"
-              onClick={() => setIsAddStaffOpen(true)}
-              className="mt-auto flex items-center justify-center gap-1.5 w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-lg text-xs font-bold text-[#00647c] transition-all cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Register New Staff</span>
-            </button>
-          </div>
-
-          {/* Right Column: Detailed Security Profile & Core Toggles */}
-          <div className="lg:col-span-2 space-y-6">
-            {selectedStaffIdPermissions ? (() => {
-              const currentStaffItem = localStaff.find(s => s.id === selectedStaffIdPermissions);
-              if (!currentStaffItem) return null;
-
-              // Helper for checking if custom rules are live vs template rules
-              const roleDefaults = getRoleDefaultPermissions(editStaffRole);
-              const hasCustomRuleOverrides = editStaffPermissions.some(p => !roleDefaults.includes(p)) || roleDefaults.some(p => !editStaffPermissions.includes(p));
-
-              // Toggling singular privilege handler
-              const handleTogglePermissionId = (permId: string) => {
-                if (editStaffPermissions.includes(permId)) {
-                  setEditStaffPermissions(prev => prev.filter(p => p !== permId));
-                } else {
-                  setEditStaffPermissions(prev => [...prev, permId]);
-                }
-              };
-
-              // Revert to role default handler
-              const handleResetToRoleDefaults = () => {
-                setEditStaffPermissions(getRoleDefaultPermissions(editStaffRole));
-                addToast(`Reset ${currentStaffItem.name} permissions to standard ${editStaffRole} template`, 'info');
-              };
-
-              // Saving entire form handler
-              const handleSaveStaffSecurityCredentials = (e: React.FormEvent) => {
-                e.preventDefault();
-                const updatedStaffMember: Staff = {
-                  ...currentStaffItem,
-                  name: editStaffName,
-                  email: editStaffEmail || `${editStaffName.toLowerCase().replace(/\s+/g, '')}@clinic.com`,
-                  role: editStaffRole,
-                  specialty: editStaffSpecialty,
-                  billingRate: Number(editStaffBillingRate) || 0,
-                  permissions: editStaffPermissions,
-                };
-
-                // Save locally first
-                setLocalStaff(prev => prev.map(s => s.id === updatedStaffMember.id ? updatedStaffMember : s));
-                // Call parent callback if configured
-                if (onUpdateStaff) {
-                  onUpdateStaff(updatedStaffMember);
-                }
-                addToast(`Successfully updated credentials and permissions for ${editStaffName}`, 'success');
-              };
-
-              return (
-                <form onSubmit={handleSaveStaffSecurityCredentials} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-                  {/* Executive Header info card */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                    <div>
-                      <h3 className="font-extrabold text-sm text-[#0d1c2e] font-sans">Manage Accessibility Passports</h3>
-                      <p className="text-xs text-slate-500 mt-1 font-medium">Configure profile coordinates and toggle specific role permissions.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {hasCustomRuleOverrides ? (
-                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200/50 flex items-center gap-1.5 font-sans">
-                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
-                          Custom Override Active
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold bg-slate-50 text-slate-600 px-2.5 py-1 rounded-full border border-slate-150 flex items-center gap-1.5 font-sans">
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          Matches Role Defaults
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Profiler properties deck */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Display Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editStaffName}
-                        onChange={(e) => setEditStaffName(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Contact Email</label>
-                      <input
-                        type="email"
-                        required
-                        value={editStaffEmail}
-                        onChange={(e) => setEditStaffEmail(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Core Security Role</label>
-                      <select
-                        value={editStaffRole}
-                        onChange={(e) => {
-                          const newR = e.target.value as Role;
-                          setEditStaffRole(newR);
-                          setEditStaffPermissions(getRoleDefaultPermissions(newR));
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none cursor-pointer font-bold font-sans"
-                      >
-                        {Object.values(Role).map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Specialization</label>
-                        <input
-                          type="text"
-                          value={editStaffSpecialty}
-                          onChange={(e) => setEditStaffSpecialty(e.target.value)}
-                          placeholder="e.g. Surgery"
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-extrabold text-[#0d1c2e] uppercase tracking-widest block font-sans">Billing Rate ($/hr)</label>
-                        <input
-                          type="number"
-                          value={editStaffBillingRate}
-                          onChange={(e) => setEditStaffBillingRate(Number(e.target.value))}
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-[#00647c] focus:outline-none font-bold font-sans"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Checker list */}
-                  <div className="space-y-3 font-sans">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-extrabold text-xs text-[#0d1c2e] uppercase tracking-wider">Granular Permission Registers</h4>
-                      <button
-                        type="button"
-                        onClick={handleResetToRoleDefaults}
-                        className="text-[10px] font-extrabold text-[#00647c] hover:underline cursor-pointer font-bold"
-                      >
-                        Reset to {editStaffRole} Defaults
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {[
-                        {
-                          id: 'DASHBOARD_ACCESS',
-                          title: 'Executive Dashboards',
-                          desc: 'Viewing metrics graphs, dynamic charts & financial indicators',
-                        },
-                        {
-                          id: 'APPOINTMENTS_VIEW',
-                          title: 'Read Appointments',
-                          desc: 'Accessing calendars, active schedules, and check-in rows',
-                        },
-                        {
-                          id: 'APPOINTMENTS_EDIT',
-                          title: 'Manage Appointments',
-                          desc: 'Scheduling, rebooking, slot reserves and cancellation locks',
-                        },
-                        {
-                          id: 'PATIENTS_VIEW',
-                          title: 'View Health Records',
-                          desc: 'Browsing pet clinical folders, vaccine charts and owner biodata',
-                        },
-                        {
-                          id: 'PATIENTS_EDIT',
-                          title: 'Register & Edit Profiles',
-                          desc: 'Creating new client accounts, pet cards, and emergency notes',
-                        },
-                        {
-                          id: 'SOAP_RECORDS_EDIT',
-                          title: 'Authorize Clinical Notes',
-                          desc: 'Creating SOAP documentation, diagnostic records, and procedures',
-                        },
-                        {
-                          id: 'PHARMACY_Dispense',
-                          title: 'Pharmacy Dispenser',
-                          desc: 'Dispensing pharmacological inventory and prescription approvals',
-                        },
-                        {
-                          id: 'BILLING_INVOICE',
-                          title: 'Invoicing & Payments',
-                          desc: 'Compiling service prices, printing invoice worksheets, and recording bills',
-                        },
-                        {
-                          id: 'STAFF_PERMISSIONS_EDIT',
-                          title: 'Rosters & Access Rules',
-                          desc: 'Editing active staff shifts, modifying roles, and setting permissions',
-                        },
-                      ].map((perm) => {
-                        const isChecked = editStaffPermissions.includes(perm.id);
-                        return (
-                          <div
-                            key={perm.id}
-                            onClick={() => handleTogglePermissionId(perm.id)}
-                            className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer select-none ${
-                              isChecked
-                                ? 'border-[#00647c]/30 bg-[#00647c]/[0.02] hover:bg-[#00647c]/[0.04]'
-                                : 'border-slate-150 bg-white hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <div className="mt-0.5 font-sans font-bold">
-                              {isChecked ? (
-                                <div className="w-5 h-5 rounded-md bg-[#00647c] text-white flex items-center justify-center shadow-xs">
-                                  <Check className="w-3.5 h-3.5" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-md border border-slate-300 bg-white" />
-                              )}
-                            </div>
-                            <div className="space-y-0.5 pointer-events-none">
-                              <p className="font-extrabold text-xs text-[#0d1c2e]">{perm.title}</p>
-                              <p className="text-[10px] text-slate-500 leading-normal font-medium">{perm.desc}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Form Trigger Row */}
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 font-sans">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedStaffIdPermissions(null);
-                        setActiveSubView('scheduler');
-                      }}
-                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600 cursor-pointer"
-                    >
-                      Exit Permissions
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 bg-[#00647c] hover:bg-[#007f9d] text-white rounded-lg text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Save Staff Policies</span>
-                    </button>
-                  </div>
-                </form>
-              );
-            })() : (
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 space-y-3">
-                <ShieldCheck className="w-12 h-12 stroke-[1.2] text-[#00647c] mx-auto animate-bounce" />
-                <p className="text-xs font-bold text-[#0d1c2e] font-sans">Select a Practitioner</p>
-                <p className="text-[11px] text-slate-500 max-w-sm mx-auto font-medium">Click any clinician or support team member on the left panel to examine their operational passport, edit details, and modify privilege levels dynamically.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* DIALOG 1: Add staff member */}
-      {isAddStaffOpen && (
-        <div className="fixed inset-0 bg-[#0d1c2e]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" id="add-staff-modal">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
-            <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase text-[#0d1c2e] tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#00647c]" />
-                <span>Register New Staff</span>
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => setIsAddStaffOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateStaff} className="p-5 space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="block text-slate-500 font-bold">Full Name</label>
-                <input 
-                  type="text"
-                  value={newStaffName}
-                  onChange={(e) => setNewStaffName(e.target.value)}
-                  placeholder="e.g. Dr. Frank Marcus"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00647c]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">Roster Role</label>
-                  <select 
-                    value={newStaffRole}
-                    onChange={(e) => setNewStaffRole(e.target.value as Role)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none cursor-pointer text-xs font-bold"
-                  >
-                    <option value={Role.DVM}>DVM (Doctor)</option>
-                    <option value={Role.TECH}>Vet Technician</option>
-                    <option value={Role.RECEPTION}>Reception Staff</option>
-                    <option value={Role.ADMIN}>Administrator</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">Specialty Focus</label>
-                  <input 
-                    type="text"
-                    value={newStaffSpecialty}
-                    onChange={(e) => setNewStaffSpecialty(e.target.value)}
-                    placeholder="e.g. Dentistry, Admin"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-slate-500 font-bold">Secure Email Address</label>
-                <input 
-                  type="email"
-                  value={newStaffEmail}
-                  onChange={(e) => setNewStaffEmail(e.target.value)}
-                  placeholder="e.g. marc@vethub.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00647c]"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddStaffOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-600 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#00647c] hover:bg-[#007f9d] rounded-lg font-bold text-white transition-colors cursor-pointer"
-                >
-                  Register Member
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DIALOG 2: Schedule Shift Assignment */}
-      {isQuickShiftOpen && (
-        <div className="fixed inset-0 bg-[#0d1c2e]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4" id="quick-shift-modal">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
-            <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase text-[#0d1c2e] tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-[#00647c]" />
-                <span>Schedule Shift Assignment</span>
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => setIsQuickShiftOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateShift} className="p-5 space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="block text-slate-500 font-bold">Select Practitioner / Staff</label>
-                <select
-                  value={newShiftStaffId}
-                  onChange={(e) => {
-                    setNewShiftStaffId(e.target.value);
-                    const matchedS = localStaff.find(s => s.id === e.target.value);
-                    if (matchedS) {
-                      setNewShiftRole(matchedS.role === Role.DVM ? 'Surgery' : matchedS.role === Role.TECH ? 'General' : 'Reception');
+                allStaff.forEach(s => {
+                  const shifts = weeklySchedule[s.id] || Array(7).fill('OFF');
+                  const sShift = shifts[dayIdx];
+                  if (sShift && sShift !== 'OFF') {
+                    if (s.role === Role.DVM || s.role === Role.OWNER) {
+                      scheduledDVMs++;
+                    } else if (s.role === Role.TECH) {
+                      scheduledTechs++;
+                    } else {
+                      scheduledOthers++;
                     }
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none cursor-pointer font-bold"
-                  required
-                >
-                  <option value="">-- Choose practitioner --</option>
-                  {localStaff.map(st => (
-                    <option key={st.id} value={st.id}>
-                      {st.name} ({st.role})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  }
+                });
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">Roster Day</label>
-                  <select 
-                    value={newShiftDay}
-                    onChange={(e) => setNewShiftDay(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none cursor-pointer"
-                  >
-                    {daysOfWeek.map((day, idx) => (
-                      <option key={idx} value={idx}>{day.full} ({day.dateNum})</option>
-                    ))}
-                  </select>
-                </div>
+                // Safety flag calculation
+                let safetyBadge = {
+                  label: 'Fully Staffed',
+                  style: 'bg-emerald-50 text-emerald-800 border-emerald-250 font-bold'
+                };
+                if (scheduledDVMs === 0) {
+                  safetyBadge = {
+                    label: '🚨 No Vet Care',
+                    style: 'bg-rose-50 text-rose-800 border-rose-250 font-bold animate-pulse'
+                  };
+                } else if (scheduledTechs === 0) {
+                  safetyBadge = {
+                    label: '⚠️ No Techs',
+                    style: 'bg-amber-50 text-amber-800 border-amber-250 font-bold'
+                  };
+                }
 
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">Assignment Type</label>
-                  <input 
-                    type="text"
-                    value={newShiftRole}
-                    onChange={(e) => setNewShiftRole(e.target.value)}
-                    placeholder="e.g. Surgery, Lab, General"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
+                return (
+                  <div key={day.key} className="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-2xs flex flex-col justify-between space-y-3 hover:shadow-xs hover:-translate-y-0.5 transition-all duration-200" id={`safety-card-${day.key}`}>
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">
+                        {day.fullLabel.slice(0, 3)}
+                      </span>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>DVM</span>
+                          <span className="font-mono font-bold text-slate-800">{scheduledDVMs}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Tech</span>
+                          <span className="font-mono font-bold text-slate-800">{scheduledTechs}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 border-t pt-1 mt-1 border-dashed">
+                          <span>Total</span>
+                          <span className="font-mono font-bold text-slate-800">{scheduledDVMs + scheduledTechs + scheduledOthers}</span>
+                        </div>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">Start Time</label>
-                  <input 
-                    type="time"
-                    value={newShiftStart}
-                    onChange={(e) => setNewShiftStart(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none cursor-pointer"
-                    required
-                  />
-                </div>
+                    <span className={`text-[8px] py-1 px-1.5 rounded-lg border block text-center leading-tight tracking-tight ${safetyBadge.style}`} id={`safety-badge-${day.key}`}>
+                      {safetyBadge.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
-                <div className="space-y-1">
-                  <label className="block text-slate-500 font-bold">End Time</label>
-                  <input 
-                    type="time"
-                    value={newShiftEnd}
-                    onChange={(e) => setNewShiftEnd(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:bg-white focus:outline-none cursor-pointer"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickShiftOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-600 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#00647c] hover:bg-[#007f9d] rounded-lg font-bold text-white transition-colors cursor-pointer"
-                >
-                  Assign Shift
-                </button>
-              </div>
-            </form>
           </div>
+
         </div>
       )}
-
-      {/* Floating Dynamic Feedback Toasts */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none" id="staff-feedback-toasts">
-        {toasts.map(toast => (
-          <div 
-            key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 p-4 rounded-xl shadow-xl border text-xs font-semibold tracking-wide transition-all duration-350 animate-slide-in ${
-              toast.type === 'success' ? 'bg-[#00647c] border-cyan-500/30 text-white animate-pulse' :
-              toast.type === 'error' ? 'bg-red-800 border-red-700 text-white' :
-              'bg-slate-900 border-slate-700 text-slate-100'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 bg-white rounded-full" />
-            <span>{toast.message}</span>
-          </div>
-        ))}
-      </div>
-
     </div>
   );
 }

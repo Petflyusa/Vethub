@@ -53,6 +53,9 @@ export default function SoapEditor({
   });
   const [newVacDosage, setNewVacDosage] = useState('1.0 mL');
   const [newVacStatus, setNewVacStatus] = useState<'Administered' | 'Due' | 'Overdue'>('Administered');
+  const [newVacManufacturer, setNewVacManufacturer] = useState('');
+  const [newVacSerialNumber, setNewVacSerialNumber] = useState('');
+  const [newVacType, setNewVacType] = useState<'Active' | 'Killed' | 'Inactive'>('Active');
 
   const handleApplyVacPreset = (presetName: string) => {
     setNewVacName(presetName);
@@ -85,7 +88,10 @@ export default function SoapEditor({
       date: newVacDate,
       nextDueDate: newVacDueDate,
       dosage: newVacDosage || '1.0 mL',
-      status: newVacStatus
+      status: newVacStatus,
+      manufacturer: newVacManufacturer || undefined,
+      serialNumber: newVacSerialNumber || undefined,
+      type: newVacType
     };
     setVaccinations([...vaccinations, newVac]);
     
@@ -97,6 +103,9 @@ export default function SoapEditor({
     setNewVacDueDate(nextDate.toISOString().split('T')[0]);
     setNewVacDosage('1.0 mL');
     setNewVacStatus('Administered');
+    setNewVacManufacturer('');
+    setNewVacSerialNumber('');
+    setNewVacType('Active');
   };
 
   const handleRemoveVaccine = (vacId: string) => {
@@ -529,6 +538,13 @@ export default function SoapEditor({
                       Dose: <span className="text-slate-800 font-bold">{vac.dosage || '1.0 mL'}</span> • Administered: <span className="text-slate-800 font-bold">{vac.date}</span>
                     </p>
                     <p className="text-[9px] text-sky-800 font-bold mt-0.5">Next Due: {vac.nextDueDate}</p>
+                    {(vac.manufacturer || vac.serialNumber || vac.type) && (
+                      <p className="text-[9px] text-slate-500 font-semibold mt-0.5 leading-tight">
+                        {vac.manufacturer && <span className="mr-2">Mfg: <span className="text-slate-700 font-extrabold">{vac.manufacturer}</span></span>}
+                        {vac.serialNumber && <span className="mr-2">S/N: <span className="text-slate-700 font-extrabold">{vac.serialNumber}</span></span>}
+                        {vac.type && <span>Type: <span className="text-slate-700 font-extrabold">{vac.type}</span></span>}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded font-mono ${
@@ -553,16 +569,48 @@ export default function SoapEditor({
           )}
 
           {/* Add Vaccine Form */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-sky-100/80">
-            <div className="col-span-2 md:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-sky-100/80">
+            <div>
               <label className="block text-[10px] font-bold text-slate-500 mb-1">Vaccine Name</label>
               <input
                 type="text"
                 value={newVacName}
                 onChange={(e) => setNewVacName(e.target.value)}
                 placeholder="e.g. Rabies Booster"
-                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
               />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Manufacturer</label>
+              <input
+                type="text"
+                value={newVacManufacturer}
+                onChange={(e) => setNewVacManufacturer(e.target.value)}
+                placeholder="e.g. Zoetis / Merck"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Serial Number</label>
+              <input
+                type="text"
+                value={newVacSerialNumber}
+                onChange={(e) => setNewVacSerialNumber(e.target.value)}
+                placeholder="e.g. SN-98721A"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1">Vaccine Type</label>
+              <select
+                value={newVacType}
+                onChange={(e) => setNewVacType(e.target.value as any)}
+                className="w-full text-xs p-2 bg-white border border-[#bdc8ce] rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
+              >
+                <option value="Active">Active</option>
+                <option value="Killed">Killed</option>
+                <option value="Inactive">Inactive</option>
+              </select>
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 mb-1">Date Administered</label>
@@ -570,7 +618,7 @@ export default function SoapEditor({
                 type="date"
                 value={newVacDate}
                 onChange={(e) => setNewVacDate(e.target.value)}
-                className="w-full text-xs p-1.5 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
               />
             </div>
             <div>
@@ -579,23 +627,23 @@ export default function SoapEditor({
                 type="date"
                 value={newVacDueDate}
                 onChange={(e) => setNewVacDueDate(e.target.value)}
-                className="w-full text-xs p-1.5 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+                className="w-full text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
               />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 mb-1">Dosage / Status</label>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={newVacDosage}
                   onChange={(e) => setNewVacDosage(e.target.value)}
                   placeholder="1.0 mL"
-                  className="w-16 text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none"
+                  className="w-20 text-xs p-2 border border-[#bdc8ce] bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
                 />
                 <select
                   value={newVacStatus}
                   onChange={(e) => setNewVacStatus(e.target.value as any)}
-                  className="grow text-xs p-1 bg-white border border-[#bdc8ce] rounded-md focus:outline-none"
+                  className="grow text-xs p-1 bg-white border border-[#bdc8ce] rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[#0d1c2e]"
                 >
                   <option value="Administered">Administered</option>
                   <option value="Due">Due</option>
@@ -603,11 +651,11 @@ export default function SoapEditor({
                 </select>
               </div>
             </div>
-            <div className="flex items-end justify-end col-span-2 md:col-span-1">
+            <div className="flex items-end justify-end">
               <button
                 type="button"
                 onClick={handleAddVaccine}
-                className="w-full p-2 bg-primary text-on-primary rounded-md hover:bg-opacity-90 active:scale-95 transition-all text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer h-9"
+                className="w-full p-2 bg-primary text-on-primary rounded-md hover:bg-opacity-90 active:scale-95 transition-all text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer h-9 shadow-xs"
                 title="Add to vaccination list"
               >
                 <Plus className="w-4 h-4" /> Add Vaccine

@@ -44,6 +44,8 @@ interface MedicalRecordsViewProps {
   appointments?: Appointment[];
   medicalRecords?: MedicalRecord[];
   onSaveSoapNote?: (record: MedicalRecord) => void;
+  initialSelectedPetId?: string | null;
+  onClearInitialPetId?: () => void;
 }
 
 export default function MedicalRecordsView({
@@ -53,7 +55,9 @@ export default function MedicalRecordsView({
   loggedInStaff,
   appointments = [],
   medicalRecords = [],
-  onSaveSoapNote
+  onSaveSoapNote,
+  initialSelectedPetId,
+  onClearInitialPetId
 }: MedicalRecordsViewProps) {
   
   // Find pets and clients for the appointments in Today's Queue
@@ -123,8 +127,35 @@ export default function MedicalRecordsView({
       });
     }
 
+    // Add virtual selected pet if initialSelectedPetId parameter exists
+    if (initialSelectedPetId) {
+      const hasPet = items.some(item => item.pet?.id === initialSelectedPetId);
+      if (!hasPet) {
+        const targetPet = pets.find(p => p.id === initialSelectedPetId);
+        if (targetPet) {
+          const targetClient = clients.find(c => c.id === targetPet.ownerId);
+          const virtualApt = {
+            id: `apt-virtual-${targetPet.id}`,
+            petId: targetPet.id,
+            clientId: targetPet.ownerId,
+            staffId: loggedInStaff?.id || 'staff-dvm-1',
+            dateTime: new Date().toISOString(),
+            duration: 30,
+            reason: 'Primary Clinical Soap Session',
+            status: 'CHECKED_IN' as const
+          };
+          items.unshift({
+            id: `apt-virtual-${targetPet.id}`,
+            appointment: virtualApt,
+            pet: targetPet,
+            client: targetClient
+          });
+        }
+      }
+    }
+
     return items;
-  }, [appointments, pets, clients]);
+  }, [appointments, pets, clients, initialSelectedPetId, loggedInStaff]);
 
   // Track currently selected patient from the queue
   const [selectedQueueId, setSelectedQueueId] = useState<string>('apt-demo-max');
@@ -240,6 +271,9 @@ export default function MedicalRecordsView({
   });
   const [newVacDosage, setNewVacDosage] = useState('1.0 mL');
   const [newVacStatus, setNewVacStatus] = useState<'Administered' | 'Due' | 'Overdue'>('Administered');
+  const [newVacManufacturer, setNewVacManufacturer] = useState('');
+  const [newVacSerialNumber, setNewVacSerialNumber] = useState('');
+  const [newVacType, setNewVacType] = useState<'Active' | 'Killed' | 'Inactive'>('Active');
 
   // 2. AI Assist Voice Drawer Panel States
   const [showVoicePanel, setShowVoicePanel] = useState(false);
@@ -278,14 +312,28 @@ export default function MedicalRecordsView({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Synchronize initialSelectedPetId from parent
+  useEffect(() => {
+    if (initialSelectedPetId) {
+      const match = appointmentQueue.find(item => item.pet?.id === initialSelectedPetId);
+      if (match) {
+        setSelectedQueueId(match.id);
+      }
+      if (onClearInitialPetId) {
+        onClearInitialPetId();
+      }
+    }
+  }, [initialSelectedPetId, appointmentQueue, onClearInitialPetId]);
+
   // Load and sync records dynamically for the selected appointment pet
   useEffect(() => {
     if (!activeQueueItem) return;
     const pet = activeQueueItem.pet;
     const apt = activeQueueItem.appointment;
 
-    // Find if there is an existing medical record for this pet or appointment
-    const record = medicalRecords?.find(mr => mr.appointmentId === apt.id || mr.petId === pet.id);
+    // Find if there is an existing medical record for this pet or appointment (bypass if virtual new SOAP)
+    const isVirtual = apt.id && apt.id.startsWith('apt-virtual-');
+    const record = isVirtual ? null : (medicalRecords?.find(mr => mr.appointmentId === apt.id || mr.petId === pet.id));
     
     if (record) {
       setSubjectiveText(record.soap?.subjective || `${pet.name} presented for evaluation.`);
@@ -1588,6 +1636,13 @@ export default function MedicalRecordsView({
                           <div className="text-[10px] text-slate-500 font-semibold font-mono mt-0.5">
                             Given: {vac.date} | dose: {vac.dosage || '1.0 mL'}
                           </div>
+                          {(vac.manufacturer || vac.serialNumber || vac.type) && (
+                            <div className="text-[9px] text-slate-400 font-semibold mt-0.5 whitespace-nowrap leading-none">
+                              {vac.manufacturer && <span className="mr-2">Mfg: <span className="text-slate-600 font-bold">{vac.manufacturer}</span></span>}
+                              {vac.serialNumber && <span className="mr-2">S/N: <span className="text-slate-600 font-bold">{vac.serialNumber}</span></span>}
+                              {vac.type && <span>Type: <span className="text-slate-600 font-bold">{vac.type}</span></span>}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2.5">
                           <div className="text-right">
@@ -1671,6 +1726,29 @@ export default function MedicalRecordsView({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Manufacturer</label>
+                      <input
+                        type="text"
+                        value={newVacManufacturer}
+                        onChange={(e) => setNewVacManufacturer(e.target.value)}
+                        placeholder="e.g. Zoetis / Merck"
+                        className="w-full text-xs p-2 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Serial Number</label>
+                      <input
+                        type="text"
+                        value={newVacSerialNumber}
+                        onChange={(e) => setNewVacSerialNumber(e.target.value)}
+                        placeholder="e.g. SN-98721A"
+                        className="w-full text-xs p-2 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Administered</label>
                       <input
                         type="date"
@@ -1690,8 +1768,8 @@ export default function MedicalRecordsView({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-1">
                       <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Dosage</label>
                       <input
                         type="text"
@@ -1701,8 +1779,8 @@ export default function MedicalRecordsView({
                         className="w-full text-xs p-2 border border-[#bdc8ce] rounded-lg focus:outline-none bg-white font-mono"
                       />
                     </div>
-                    <div>
-                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Clinical Status</label>
+                    <div className="col-span-1">
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Status</label>
                       <select 
                         value={newVacStatus}
                         onChange={(e) => setNewVacStatus(e.target.value as any)}
@@ -1711,6 +1789,18 @@ export default function MedicalRecordsView({
                         <option value="Administered">Administered</option>
                         <option value="Due">Due</option>
                         <option value="Overdue">Overdue</option>
+                      </select>
+                    </div>
+                    <div className="col-span-1">
+                      <label className="text-[8px] font-black text-slate-400 font-mono uppercase">Type</label>
+                      <select 
+                        value={newVacType}
+                        onChange={(e) => setNewVacType(e.target.value as any)}
+                        className="w-full text-xs p-2 bg-white border border-[#bdc8ce] rounded-lg focus:outline-none"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Killed">Killed</option>
+                        <option value="Inactive">Inactive</option>
                       </select>
                     </div>
                   </div>
@@ -1729,11 +1819,17 @@ export default function MedicalRecordsView({
                       date: newVacDate,
                       nextDueDate: newVacDueDate,
                       dosage: newVacDosage || '1.0 mL',
-                      status: newVacStatus
+                      status: newVacStatus,
+                      manufacturer: newVacManufacturer || undefined,
+                      serialNumber: newVacSerialNumber || undefined,
+                      type: newVacType
                     };
                     setVaccinations([...vaccinations, updatedVac]);
                     addToast(`Recorded administered vaccine: ${newVacName}`, 'success');
                     setNewVacName('');
+                    setNewVacManufacturer('');
+                    setNewVacSerialNumber('');
+                    setNewVacType('Active');
                   }}
                   className="w-full py-2 bg-[#00647c] hover:bg-[#004e61] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
                 >
@@ -1862,9 +1958,9 @@ export default function MedicalRecordsView({
                   className="bg-slate-700 border-none text-xs font-bold text-white rounded p-1 cursor-pointer outline-none focus:ring-1 focus:ring-sky-500"
                 >
                   <option value="English">English</option>
-                  <option value="Chinese">中文 / Chinese</option>
-                  <option value="Spanish">Español / Spanish</option>
-                  <option value="German">Deutsch / German</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="German">German</option>
                 </select>
               </div>
             </div>

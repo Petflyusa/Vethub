@@ -35,6 +35,7 @@ interface PetListProps {
   onEditMedicalRecord?: (record: MedicalRecord, petName: string) => void;
   onUpdatePet?: (pet: Pet) => void;
   onUpdateClient?: (client: Client) => void;
+  onStartNewSoap?: (petId: string) => void;
 }
 
 export default function PetList({
@@ -45,7 +46,8 @@ export default function PetList({
   onAddNewPet,
   onEditMedicalRecord,
   onUpdatePet,
-  onUpdateClient
+  onUpdateClient,
+  onStartNewSoap
 }: PetListProps) {
   // Navigation & filtering state
   const [activeSubTab, setActiveSubTab] = useState<'patients' | 'clients'>('patients');
@@ -1109,12 +1111,26 @@ export default function PetList({
                             {selectedPet.species}
                           </span>
                         </div>
-                        <button
-                          onClick={() => handleStartEditPet(selectedPet)}
-                          className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-[#00647c] bg-[#eff4ff] hover:bg-[#ccdfff] px-2.5 py-1.5 rounded transition-all cursor-pointer shadow-3xs border border-[#00647c]/20"
-                        >
-                          <Edit2 className="w-3 h-3" /> Edit Profile
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => {
+                              if (onStartNewSoap) {
+                                onStartNewSoap(selectedPet.id);
+                              }
+                            }}
+                            className="flex items-center gap-1 text-[10px] uppercase font-black tracking-wider text-white bg-[#00647c] hover:bg-[#004e61] px-3 py-1.5 rounded transition-all cursor-pointer shadow-3xs border border-transparent"
+                            title="Start Direct SOAP session for this pet"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Start New SOAP
+                          </button>
+
+                          <button
+                            onClick={() => handleStartEditPet(selectedPet)}
+                            className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-[#00647c] bg-[#eff4ff] hover:bg-[#ccdfff] px-2.5 py-1.5 rounded transition-all cursor-pointer shadow-3xs border border-[#00647c]/20"
+                          >
+                            <Edit2 className="w-3 h-3" /> Edit Profile
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">

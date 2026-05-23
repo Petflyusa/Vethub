@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  LayoutDashboard, Calendar, Users, FileText, Pill, CreditCard, Award, BarChart3, Settings as SettingsIcon, LogOut, Search, Bell, HelpCircle, Heart, Plus, Menu, X, PawPrint, Shield, Sparkles
+  LayoutDashboard, Calendar, Users, FileText, Pill, CreditCard, Award, BarChart3, Settings as SettingsIcon, LogOut, Search, Bell, HelpCircle, Heart, Plus, Menu, X, PawPrint, Shield, Sparkles, Package
 } from 'lucide-react';
 import { 
   Staff, Client, Pet, Appointment, MedicalRecord, Invoice, RevenueSplit, Consultation, LabOrder, Role, hasPermission 
@@ -24,11 +24,15 @@ import SoapEditor from './components/SoapEditor';
 import { AppointmentsCalendar } from './components/AppointmentsCalendar';
 import MedicalRecordsView from './components/MedicalRecordsView';
 import PharmacyView from './components/PharmacyView';
+import TreatmentView from './components/TreatmentView';
+import InventoryView from './components/InventoryView';
 import StaffView from './components/StaffView';
+import { Stethoscope } from 'lucide-react';
 import BillingView from './components/BillingView';
 import { 
   VetDashboard, ManagerDashboard, ReceptionDashboard, TechDashboard, FinanceDashboard 
 } from './components/RoleDashboards';
+import ReportsView from './components/ReportsView';
 
 export default function App() {
   // Core Application Database State
@@ -86,15 +90,41 @@ export default function App() {
 
   // Authentication & session state
   const [loggedInStaff, setLoggedInStaff] = useState<Staff | null>(null);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'patients' | 'appointments' | 'records' | 'pharmacy' | 'staff' | 'billing'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'patients' | 'appointments' | 'records' | 'pharmacy' | 'treatment' | 'staff' | 'billing' | 'reports'>('dashboard');
   const [searchText, setSearchText] = useState('');
   const [activeFeatureModal, setActiveFeatureModal] = useState<'appointments' | 'pharmacy' | 'invoicing' | 'reports' | 'settings' | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Promotions Page / Settings states
+  const [newPromoNameInput, setNewPromoNameInput] = useState('');
+  const [newPromoCodeInput, setNewPromoCodeInput] = useState('');
+  const [newPromoDescInput, setNewPromoDescInput] = useState('');
+
+  const handleAddNewPromotion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromoNameInput.trim() || !newPromoCodeInput.trim()) {
+      alert('Please fill out the campaign name and promo coupon code!');
+      return;
+    }
+    const newPromo = {
+      id: `p-custom-${Date.now()}`,
+      name: newPromoNameInput.trim(),
+      code: newPromoCodeInput.trim().toUpperCase(),
+      description: newPromoDescInput.trim() || 'Complimentary practice wellness giveaway combo.',
+      active: true
+    };
+    setPromotions(prev => [newPromo, ...prev]);
+    setNewPromoNameInput('');
+    setNewPromoCodeInput('');
+    setNewPromoDescInput('');
+    alert(`Success! Successfully created and registered promo campaign: #${newPromo.code}`);
+  };
 
   // Active EHR editing sub-view states
   const [editingAptId, setEditingAptId] = useState<string | null>(null);
   const [editingPetName, setEditingPetName] = useState<string | null>(null);
   const [selectedRecordToEdit, setSelectedRecordToEdit] = useState<MedicalRecord | null>(null);
+  const [selectedPetIdForNewSoap, setSelectedPetIdForNewSoap] = useState<string | null>(null);
 
   // AUTHENTICATION HANDLERS
   const handleLogin = (staff: Staff) => {
@@ -309,6 +339,7 @@ export default function App() {
             invoices={invoiceList}
             splits={splitList}
             allStaff={staffList}
+            labOrders={labOrderList}
             treatmentPrices={treatmentPrices}
             medicationPrices={medicationPrices}
             overnightTasks={overnightTasks}
@@ -389,6 +420,7 @@ export default function App() {
             invoices={invoiceList}
             splits={splitList}
             allStaff={staffList}
+            labOrders={labOrderList}
             treatmentPrices={treatmentPrices}
             medicationPrices={medicationPrices}
             overnightTasks={overnightTasks}
@@ -591,34 +623,60 @@ export default function App() {
               )}
 
               {hasPermission(loggedInStaff, 'STAFF_PERMISSIONS_EDIT') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentTab('staff');
-                    setEditingAptId(null);
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
-                    currentTab === 'staff' && !editingAptId
-                      ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
-                      : 'text-[#3e484d] hover:bg-slate-100 font-medium'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Award className="w-4 h-4 shrink-0" />
-                    <span className="text-xs">Staff</span>
-                  </div>
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentTab('treatment');
+                      setEditingAptId(null);
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                      currentTab === 'treatment' && !editingAptId
+                        ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                        : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Package className="w-4 h-4 shrink-0" />
+                      <span className="text-xs">Inventory &amp; Pricing</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentTab('staff');
+                      setEditingAptId(null);
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                      currentTab === 'staff' && !editingAptId
+                        ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                        : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4 h-4 shrink-0 text-[#00647c]" />
+                      <span className="text-xs">Staff &amp; Roster</span>
+                    </div>
+                  </button>
+                </>
               )}
 
               <button
                 type="button"
                 onClick={() => {
-                  setActiveFeatureModal('reports');
+                  setCurrentTab('reports');
+                  setEditingAptId(null);
+                  setActiveFeatureModal(null);
                   setMobileSidebarOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-left text-[#3e484d] hover:bg-slate-100 font-medium cursor-pointer"
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 cursor-pointer ${
+                  currentTab === 'reports' && !editingAptId
+                    ? 'bg-[#00647c]/10 text-[#00647c] font-bold border-r-4 border-[#00647c] shadow-2xs scale-[1.01]'
+                    : 'text-[#3e484d] hover:bg-slate-100 font-medium'
+                }`}
               >
                 <BarChart3 className="w-4 h-4 shrink-0" />
                 <span className="text-xs">Reports</span>
@@ -759,7 +817,7 @@ export default function App() {
             )}
 
             {/* Core Workplace contents */}
-            <main className="flex-grow px-4 md:px-8 py-6 max-w-7xl w-full mx-auto">
+            <main className="flex-grow px-4 md:px-8 py-6 w-full">
               
               {editingAptId && editingPetName ? (
                 /* SOAP Health Notes compilation sheet (Surgical / DVM action override) */
@@ -830,6 +888,8 @@ export default function App() {
                         appointments={appointmentList}
                         medicalRecords={medicalRecordList}
                         onSaveSoapNote={handleSaveSoapNote}
+                        initialSelectedPetId={selectedPetIdForNewSoap}
+                        onClearInitialPetId={() => setSelectedPetIdForNewSoap(null)}
                       />
                     ) : currentTab === 'pharmacy' ? (
                       <PharmacyView
@@ -838,16 +898,38 @@ export default function App() {
                         allStaff={staffList}
                         loggedInStaff={loggedInStaff}
                       />
+                    ) : currentTab === 'treatment' ? (
+                      <InventoryView
+                        treatmentPrices={treatmentPrices}
+                        onChangeTreatmentPrices={setTreatmentPrices}
+                        medicationPrices={medicationPrices}
+                        onChangeMedicationPrices={setMedicationPrices}
+                        supplierOrders={supplierOrders}
+                        onChangeSupplierOrders={setSupplierOrders}
+                        allStaff={staffList}
+                        loggedInStaff={loggedInStaff}
+                      />
                     ) : currentTab === 'staff' ? (
                       <StaffView
                         allStaff={staffList}
                         loggedInStaff={loggedInStaff}
                         onAddStaff={(newS) => setStaffList(prev => [...prev, newS])}
-                        onUpdateStaff={handleUpdateStaff}
+                        onUpdateStaff={(updatedList) => setStaffList(updatedList)}
                       />
                     ) : currentTab === 'billing' ? (
                       <BillingView
                         onAddInvoice={(newI) => setInvoiceList(prev => [newI, ...prev])}
+                      />
+                    ) : currentTab === 'reports' ? (
+                      <ReportsView
+                        invoices={invoiceList}
+                        splits={splitList}
+                        allStaff={staffList}
+                        pets={petList}
+                        clients={clientList}
+                        onMarkInvoicePaid={handleMarkInvoicePaid}
+                        onApproveSplit={handleApproveSplit}
+                        onPaySplit={handlePaySplit}
                       />
                     ) : (
                       /* Standard database grid list with live search filters applied! */
@@ -880,6 +962,10 @@ export default function App() {
                           onEditMedicalRecord={handleOpenSoapFromHistory}
                           onUpdatePet={handleUpdatePet}
                           onUpdateClient={handleUpdateClient}
+                          onStartNewSoap={(petId) => {
+                            setSelectedPetIdForNewSoap(petId);
+                            setCurrentTab('records');
+                          }}
                         />
                       </div>
                     )}
@@ -1046,49 +1132,88 @@ export default function App() {
                       </div>
                     )}
 
-                    {activeFeatureModal === 'reports' && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="p-4 border rounded-lg bg-slate-50/50">
-                            <span className="block text-slate-400 font-bold uppercase text-[9px]">Active Shift Providers</span>
-                            <span className="text-xl font-bold text-slate-800 mt-1 block">4 Veterinarians</span>
-                          </div>
-                          <div className="p-4 border rounded-lg bg-slate-50/50">
-                            <span className="block text-slate-400 font-bold uppercase text-[9px]">Today's Direct Revenue</span>
-                            <span className="text-xl font-bold text-emerald-700 mt-1 block">$2,450.00</span>
+                    {activeFeatureModal === 'settings' && (
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider mb-2">Clinical Vitality Portal Controls</h4>
+                          <div className="space-y-2 border-t pt-2">
+                            <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                              <div>
+                                <span className="font-semibold block">Speech-To-Text Audio AI Translation</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Enables voice neural transcriptions inside SOAP editors</span>
+                              </div>
+                              <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
+                            </label>
+                            <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                              <div>
+                                <span className="font-semibold block">Automatic Clinical Revenue Splitting</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Calculates individual team commissions instantly upon chart lock</span>
+                              </div>
+                              <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
+                            </label>
+                            <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+                              <div>
+                                <span className="font-semibold block">Offline Client Recovery State</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Caches patient record modifications inside standard LocalStorage</span>
+                              </div>
+                              <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
+                            </label>
                           </div>
                         </div>
-                        <p className="text-slate-500">
-                          Automatic reports calculate individual commission payouts, surgical splits, nurse duty support logs, and equipment cost margins in the background.
-                        </p>
-                      </div>
-                    )}
 
-                    {activeFeatureModal === 'settings' && (
-                      <div className="space-y-4">
-                        <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">Clinical Vitality Portal Controls</h4>
-                        <div className="space-y-2 border-t pt-2">
-                          <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
-                            <div>
-                              <span className="font-semibold block">Speech-To-Text Audio AI Translation</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Enables voice neural transcriptions inside SOAP editors</span>
+                        {/* Practice Promotions & Coupons Configuration */}
+                        <div className="border-t pt-4 space-y-4">
+                          <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">🎯 Practice Promotions &amp; Coupons Configuration</h4>
+
+                          {/* Active lists */}
+                          <div className="space-y-2">
+                            {promotions.map(promo => (
+                              <div key={promo.id} className="p-3 bg-rose-50/20 border border-rose-200/50 rounded-xl text-left">
+                                <div className="flex justify-between items-center text-xs font-bold">
+                                  <span className="text-rose-900">{promo.name}</span>
+                                  <span className="text-rose-700 font-mono text-[10px] bg-rose-50 px-1.5 py-0.5 rounded uppercase border border-rose-100">#{promo.code}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-1 leading-normal font-medium">{promo.description}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Adding Form */}
+                          <form onSubmit={handleAddNewPromotion} className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left">
+                            <span className="text-[10.5px] font-bold text-slate-600 block uppercase tracking-wider font-sans">Register New Promotion Coupon</span>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[9.5px] font-bold text-slate-500 mb-1 uppercase tracking-wider font-mono">Campaign Name</label>
+                                <input
+                                  type="text" required value={newPromoNameInput} onChange={(e) => setNewPromoNameInput(e.target.value)} placeholder="Summer Tick Drive"
+                                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl font-medium focus:ring-1 focus:ring-[#00647c]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9.5px] font-bold text-slate-500 mb-1 uppercase tracking-wider font-mono">Coupon Code</label>
+                                <input
+                                  type="text" required value={newPromoCodeInput} onChange={(e) => setNewPromoCodeInput(e.target.value)} placeholder="TICKFREE"
+                                  className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl font-mono font-bold uppercase focus:ring-1 focus:ring-[#00647c]"
+                                />
+                              </div>
                             </div>
-                            <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
-                          </label>
-                          <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
+
                             <div>
-                              <span className="font-semibold block">Automatic Clinical Revenue Splitting</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Calculates individual team commissions instantly upon chart lock</span>
+                              <label className="block text-[9.5px] font-bold text-slate-500 mb-1 uppercase tracking-wider font-mono">Description Stipulations</label>
+                              <input
+                                type="text" value={newPromoDescInput} onChange={(e) => setNewPromoDescInput(e.target.value)} placeholder="Get free scale kit with any booster appointment."
+                                className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl font-medium focus:ring-1 focus:ring-[#00647c]"
+                              />
                             </div>
-                            <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
-                          </label>
-                          <label className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
-                            <div>
-                              <span className="font-semibold block">Offline Client Recovery State</span>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Caches patient record modifications inside standard LocalStorage</span>
-                            </div>
-                            <input type="checkbox" defaultChecked className="rounded text-[#00647c] focus:ring-[#00647c]" />
-                          </label>
+
+                            <button
+                              type="submit"
+                              className="w-full py-2 bg-[#00647c] hover:bg-cyan-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer uppercase tracking-wider font-mono"
+                            >
+                              Publish Coupon Stimulus Campaign
+                            </button>
+                          </form>
                         </div>
                       </div>
                     )}

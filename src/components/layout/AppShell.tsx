@@ -240,7 +240,7 @@ export default function AppShell({ children, title }: AppShellProps) {
                 type="text"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="搜索客户或宠物..."
+                placeholder="Search clients or pets..."
                 className="bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs w-full text-slate-800 placeholder-slate-400"
               />
             </form>
@@ -248,7 +248,7 @@ export default function AppShell({ children, title }: AppShellProps) {
             <button 
               onClick={() => router.push('/clients?search=')}
               className="sm:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full cursor-pointer"
-              title="搜索"
+              title="Search"
             >
               <Search className="w-4.5 h-4.5" />
             </button>

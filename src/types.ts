@@ -105,6 +105,9 @@ export interface VaccineRecord {
   nextDueDate: string;
   dosage?: string;
   status: 'Administered' | 'Due' | 'Overdue';
+  manufacturer?: string;
+  serialNumber?: string;
+  type?: 'Active' | 'Killed' | 'Inactive';
 }
 
 export interface MedicalRecord {

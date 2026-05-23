@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, 
   User, Clock, AlertTriangle, Plus, Check, Trash2, X, Filter,
-  Tag, Info, PlusCircle, CheckCircle, HelpCircle
+  Tag, Info, PlusCircle, CheckCircle, HelpCircle, Search
 } from 'lucide-react';
 import { Appointment, Pet, Client, Staff, Role } from '../types';
 
@@ -51,6 +51,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   // New Appointment Form State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPetId, setNewPetId] = useState(pets[0]?.id || '');
+  const [petSearchQuery, setPetSearchQuery] = useState('');
   const [newStaffId, setNewStaffId] = useState(allStaff.filter(s => s.role === Role.DVM)[0]?.id || '');
   const [newDate, setNewDate] = useState('2026-05-21');
   const [newTime, setNewTime] = useState('10:00');
@@ -58,6 +59,20 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   const [newReason, setNewReason] = useState('Checkup');
   const [newCustomReasonDetail, setNewCustomReasonDetail] = useState('');
   const [newNotes, setNewNotes] = useState('');
+
+  // Search Results computation for pet/client search bar
+  const filteredPetsForSearch = useMemo(() => {
+    if (!petSearchQuery) return [];
+    const query = petSearchQuery.toLowerCase().trim();
+    return pets.filter(p => {
+      const client = clients.find(c => c.id === p.ownerId);
+      const petNameMatch = p.name.toLowerCase().includes(query);
+      const ownerNameMatch = client ? client.name.toLowerCase().includes(query) : false;
+      const breedMatch = p.breed.toLowerCase().includes(query);
+      const speciesMatch = p.species.toLowerCase().includes(query);
+      return petNameMatch || ownerNameMatch || breedMatch || speciesMatch;
+    }).slice(0, 5);
+  }, [petSearchQuery, pets, clients]);
 
   // Auxiliary Helper lists
   const doctorsList = useMemo(() => {
@@ -108,7 +123,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
     const l = reason.toLowerCase();
     if (l.includes('vacc') || l.includes('booster') || l.includes('rabies') || l.includes('shot')) return 'Vaccination';
     if (l.includes('surgery') || l.includes('spay') || l.includes('neuter') || l.includes('op')) return 'Surgery';
-    if (l.includes('dent') || l.includes('牙') || l.includes('scaling')) return 'Dental';
+    if (l.includes('dent') || l.includes('tooth') || l.includes('scaling')) return 'Dental';
     if (l.includes('acute') || l.includes('limp') || l.includes('cough') || l.includes('emergency') || l.includes('wound') || l.includes('vomit')) return 'Emergency';
     return 'Checkup';
   };
@@ -117,38 +132,38 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
     switch (category) {
       case 'Vaccination':
         return {
-          bg: 'bg-blue-50 border-blue-500 text-blue-700',
-          badge: 'bg-blue-600',
-          dot: 'bg-blue-500',
-          accent: 'border-blue-500'
+          bg: 'bg-indigo-50/60 border-indigo-200 text-indigo-950 font-medium',
+          badge: 'bg-indigo-950 text-white',
+          dot: 'bg-indigo-500',
+          accent: 'border-indigo-500'
         };
       case 'Surgery':
         return {
-          bg: 'bg-red-50 border-red-500 text-red-700',
-          badge: 'bg-red-600',
-          dot: 'bg-red-500',
-          accent: 'border-red-500'
+          bg: 'bg-rose-50/60 border-rose-200 text-rose-950 font-medium',
+          badge: 'bg-rose-950 text-white',
+          dot: 'bg-rose-500',
+          accent: 'border-rose-500'
         };
       case 'Dental':
         return {
-          bg: 'bg-purple-50 border-purple-500 text-purple-700',
-          badge: 'bg-purple-600',
-          dot: 'bg-purple-500',
-          accent: 'border-purple-500'
+          bg: 'bg-violet-50/60 border-violet-200 text-violet-950 font-medium',
+          badge: 'bg-violet-950 text-white',
+          dot: 'bg-violet-500',
+          accent: 'border-violet-500'
         };
       case 'Emergency':
         return {
-          bg: 'bg-orange-50 border-orange-500 text-orange-700',
-          badge: 'bg-orange-600',
-          dot: 'bg-orange-500',
-          accent: 'border-orange-500'
+          bg: 'bg-amber-50/60 border-amber-200 text-amber-950 font-medium',
+          badge: 'bg-amber-950 text-white',
+          dot: 'bg-amber-500',
+          accent: 'border-amber-500'
         };
       default: // Checkup
         return {
-          bg: 'bg-emerald-50 border-emerald-500 text-emerald-700',
-          badge: 'bg-emerald-600',
-          dot: 'bg-emerald-500',
-          accent: 'border-emerald-500'
+          bg: 'bg-[#F3F4F6] border-slate-200 text-slate-900 font-medium',
+          badge: 'bg-black text-white',
+          dot: 'bg-emerald-600',
+          accent: 'border-emerald-600'
         };
     }
   };
@@ -317,37 +332,37 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-xl border border-outline-variant/60 shadow-xs overflow-hidden h-full min-h-[700px]">
+    <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden h-full min-h-[750px] font-sans">
       
       {/* 1. Left Sidebar Filter Drawer */}
-      <aside className="w-full lg:w-72 bg-[#eff4ff] border-r border-[#d5e3fc] p-5 flex flex-col gap-6" id="calendar-left-filters">
+      <aside className="w-full lg:w-72 bg-slate-50 border-r border-slate-100 p-6 flex flex-col gap-6" id="calendar-left-filters">
         
         {/* Dynamic Mini Picker */}
-        <div className="bg-white p-4 rounded-xl border border-[#dce9ff]">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xs font-bold text-[#0d1c2e] uppercase tracking-wide">
+        <div className="bg-white p-4.5 rounded-2xl border border-slate-100/80 shadow-3xs">
+          <div className="flex justify-between items-center mb-3.5">
+            <h3 className="text-xs font-bold text-slate-800 tracking-wide font-medium">
               {monthYearLabel}
             </h3>
-            <div className="flex gap-1">
+            <div className="flex gap-1 bg-slate-50 p-0.5 rounded-lg border border-slate-150/50">
               <button 
                 onClick={handlePrevWeek}
                 title="Previous Week"
-                className="p-1 hover:bg-[#e6eeff] text-slate-600 rounded-lg transition-colors cursor-pointer"
+                className="p-1 hover:bg-white text-slate-500 hover:text-slate-800 rounded-md transition-all cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button 
                 onClick={handleNextWeek}
                 title="Next Week"
-                className="p-1 hover:bg-[#e6eeff] text-slate-600 rounded-lg transition-colors cursor-pointer"
+                className="p-1 hover:bg-white text-slate-500 hover:text-slate-800 rounded-md transition-all cursor-pointer"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
           
           {/* Mini week day picker grid representation */}
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-[#3e484d] mb-2 border-b pb-1.5">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-2 border-b border-dashed border-slate-100 pb-1.5 font-mono">
             <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">
@@ -361,10 +376,10 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     Monday.setDate(Monday.getDate() - ((Monday.getDay() + 6) % 7));
                     setCurrentWeekStart(Monday);
                   }}
-                  className={`text-[11px] p-1 rounded-full font-bold cursor-pointer transition-all ${
+                  className={`text-[11px] h-7 w-7 inline-flex items-center justify-center rounded-lg font-bold cursor-pointer transition-all ${
                     isTodayStyle 
-                      ? 'bg-[#00647c] text-white' 
-                      : 'hover:bg-[#e6eeff] text-[#0d1c2e]'
+                      ? 'bg-primary text-white shadow-sm shadow-primary/20 scale-105' 
+                      : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   {getDayFormatted(day)}
@@ -376,33 +391,42 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
         {/* Doctor Filters Selection list */}
         <div>
-          <h3 className="text-xs font-bold text-[#0d1c2e] uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-[#00647c]" />
-            Doctors Duty Checklist
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            Duty Schedule
           </h3>
-          <div className="space-y-2.5 bg-white p-3.5 rounded-xl border border-[#dce9ff]" id="doctor-checklist">
+          <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-100/80 shadow-3xs" id="doctor-checklist">
             {doctorsList.map(doc => {
               const isChecked = selectedDoctors.includes(doc.id);
               return (
-                <label key={doc.id} className="flex items-center gap-2.5 cursor-pointer group">
-                  <input 
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => handleDoctorCheckboxChange(doc.id)}
-                    className="rounded border-[#6e797e] text-[#00647c] focus:ring-[#00647c] w-3.5 h-3.5 transition-all cursor-pointer"
-                  />
-                  <div className="flex items-center gap-2">
+                <div 
+                  key={doc.id} 
+                  onClick={() => handleDoctorCheckboxChange(doc.id)}
+                  className={`flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
+                    isChecked 
+                      ? 'bg-primary/5 border-primary/20' 
+                      : 'bg-transparent border-transparent hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <img 
                       src={doc.avatar} 
                       alt={doc.name} 
-                      className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-[#cbd5e1]"
+                      className="w-6.5 h-6.5 rounded-full object-cover shrink-0 border border-slate-100 shadow-3xs"
                       referrerPolicy="no-referrer"
                     />
-                    <span className="text-xs font-bold text-slate-700 group-hover:text-[#00647c] transition-colors truncate max-w-[140px]">
+                    <span className={`text-[11px] font-semibold truncate transition-colors duration-150 ${isChecked ? 'text-primary' : 'text-slate-600'}`}>
                       {doc.name}
                     </span>
                   </div>
-                </label>
+                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${
+                    isChecked 
+                      ? 'bg-primary border-primary text-white shadow-3xs' 
+                      : 'border-slate-300 bg-white'
+                  }`}>
+                    {isChecked && <Check className="w-2.5 h-2.5 stroke-[3.5]" />}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -410,11 +434,11 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
         {/* Service types / colors map */}
         <div>
-          <h3 className="text-xs font-bold text-[#0d1c2e] uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <Tag className="w-3.5 h-3.5 text-[#00647c]" />
-            Filter Service Category
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-primary" />
+            Service Filter
           </h3>
-          <div className="space-y-2 bg-white p-3.5 rounded-xl border border-[#dce9ff]">
+          <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-100/80 shadow-3xs">
             {['Checkup', 'Vaccination', 'Surgery', 'Dental', 'Emergency'].map(cat => {
               const isChecked = selectedReasonCategories.includes(cat);
               const colors = getReasonColorClasses(cat);
@@ -422,15 +446,23 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 <button
                   key={cat}
                   onClick={() => handleCategoryToggle(cat)}
-                  className={`w-full flex items-center justify-between p-1.5 rounded-lg text-left text-xs transition-all duration-150 cursor-pointer ${
-                    isChecked ? 'bg-slate-50 border border-slate-200' : 'opacity-40 hover:opacity-75'
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all cursor-pointer border ${
+                    isChecked 
+                      ? 'bg-slate-50/80 border-slate-200' 
+                      : 'border-transparent opacity-60 hover:opacity-100 hover:bg-slate-50/50'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${colors.dot} ring-2 ring-white shadow-xs`} />
-                    <span className="font-semibold text-slate-800">{cat}</span>
+                  <div className="flex items-center gap-2.5 font-semibold text-slate-700">
+                    <span className={`w-2 h-2 rounded-full ${colors.dot} ring-2 ring-white shadow-xs`} />
+                    <span>{cat}</span>
                   </div>
-                  {isChecked && <Check className="w-3.5 h-3.5 text-[#00647c]" />}
+                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${
+                    isChecked 
+                      ? 'bg-primary border-primary text-white' 
+                      : 'border-slate-200 bg-white'
+                  }`}>
+                    {isChecked && <Check className="w-2.5 h-2.5 stroke-[3.5]" />}
+                  </div>
                 </button>
               );
             })}
@@ -438,18 +470,18 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
         </div>
 
         {/* Toggle to include cancelled */}
-        <div className="mt-auto pt-4 border-t border-[#d5e3fc] flex items-center justify-between">
-          <span className="text-[11px] font-bold text-[#3e484d]">Show Cancelled</span>
+        <div className="mt-auto pt-4 border-t border-slate-200/60 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-500">Show Cancelled</span>
           <button
             type="button"
             onClick={() => setShowCancelled(!showCancelled)}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              showCancelled ? 'bg-[#00647c]' : 'bg-[#bdc8ce]'
+            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              showCancelled ? 'bg-primary' : 'bg-slate-200'
             }`}
           >
             <span
-              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                showCancelled ? 'translate-x-4' : 'translate-x-0'
+              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                showCancelled ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
@@ -461,82 +493,91 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
       <main className="flex-1 flex flex-col bg-white overflow-hidden" id="calendar-board-root">
         
         {/* Weekly Header Controls Bar */}
-        <div className="px-6 py-4 border-b border-outline-variant/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="px-6 py-4.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-205 shadow-3xs">
               <button 
                 onClick={handleGoToToday}
-                className="px-3.5 py-1 text-xs font-bold bg-white text-[#00647c] rounded-md shadow-xs hover:bg-slate-50 transition-all cursor-pointer"
+                className="px-4 py-1.5 text-xs font-bold bg-white text-primary rounded-lg shadow-2xs hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
               >
                 Today
               </button>
-              <div className="flex">
+              <div className="flex items-center bg-white rounded-lg border border-slate-200/50 p-0.5">
                 <button 
                   onClick={handlePrevWeek}
-                  className="p-1 hover:bg-white rounded transition-colors cursor-pointer"
+                  className="p-1 px-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer"
+                  title="Previous Week"
                 >
-                  <ChevronLeft className="w-4 h-4 text-slate-700" />
+                  <ChevronLeft className="w-4 h-4 text-slate-600" />
                 </button>
                 <button 
                   onClick={handleNextWeek}
-                  className="p-1 hover:bg-white rounded transition-colors cursor-pointer"
+                  className="p-1 px-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer"
+                  title="Next Week"
                 >
-                  <ChevronRight className="w-4 h-4 text-slate-700" />
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
                 </button>
               </div>
             </div>
             
-            <h2 className="text-sm md:text-base font-bold text-[#0d1c2e] uppercase tracking-wide">
+            <h2 className="text-sm md:text-base font-semibold text-slate-800 tracking-tight">
               {weekHeaderRangeLabel}
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] bg-[#e6eeff] text-primary px-2 py-1 rounded-md font-bold font-mono border">
-              LIVE CLINIC QUEUE
-            </span>
-            <div className="flex bg-slate-100 p-1 rounded-lg border text-xs">
-              <span className="px-2.5 py-1 font-bold bg-white text-[#00647c] rounded shadow-xs">Week View</span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 bg-emerald-55/75 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>LIVE QUEUE SYNC</span>
+            </div>
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs">
+              <span className="px-3 py-1 font-semibold bg-white text-primary rounded-lg shadow-3xs border border-slate-150">Week View</span>
             </div>
           </div>
         </div>
 
         {/* Scrollable Calendar Week Grid Board */}
-        <div className="flex-1 overflow-y-auto relative bg-slate-50/40" style={{ maxHeight: '700px' }}>
+        <div className="flex-1 overflow-y-auto relative bg-slate-50/15" style={{ maxHeight: '720px' }}>
           
           <div className="min-w-[700px] relative pb-10 select-none">
             
             {/* Header Line containing the days of the week */}
-            <div className="sticky top-0 bg-white z-20 grid grid-cols-[60px_repeat(7,_1fr)] border-b border-outline-variant/60 shadow-2xs h-18">
-              <div className="border-r bg-slate-50/60" /> {/* Spacer */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-xs z-20 grid grid-cols-[65px_repeat(7,_1fr)] border-b border-slate-150 shadow-3xs h-18">
+              <div className="border-r border-slate-150 bg-slate-50/10" /> {/* Spacer */}
               {weekDays.map((day, idx) => {
                 const isToday = day.toDateString() === new Date().toDateString();
                 return (
-                  <div key={idx} className={`text-center py-2 flex flex-col justify-center border-r border-[#e2e8f0] last:border-r-0 ${isToday ? 'bg-[#eff4ff]/30' : ''}`}>
-                    <p className={`text-[9px] uppercase tracking-wider font-bold ${isToday ? 'text-[#00647c] font-black' : 'text-slate-400'}`}>
+                  <div key={idx} className={`text-center py-2 flex flex-col justify-center border-r border-slate-100/50 last:border-r-0 relative ${isToday ? 'bg-primary/[0.01]' : ''}`}>
+                    <p className={`text-[10px] uppercase tracking-wider font-bold ${isToday ? 'text-primary' : 'text-slate-400'}`}>
                       {getDayNameShort(day)}
                     </p>
-                    <p className={`text-base font-bold leading-none mt-1 ${isToday ? 'text-[#00647c]' : 'text-slate-800'}`}>
-                      {getDayFormatted(day)}
-                    </p>
+                    {isToday ? (
+                      <p className="text-sm font-bold bg-primary text-white h-7 w-7 rounded-lg flex items-center justify-center mx-auto mt-1 shadow-sm shadow-primary/20 scale-105">
+                        {getDayFormatted(day)}
+                      </p>
+                    ) : (
+                      <p className="text-base font-semibold text-slate-800 mt-1 leading-none">
+                        {getDayFormatted(day)}
+                      </p>
+                    )}
                   </div>
                 );
               })}
             </div>
 
             {/* Absolute-positioned and gridded schedule blocks */}
-            <div className="relative mt-0 z-10 grid grid-cols-[60px_repeat(7,_1fr)]" style={{ height: '800px' }}>
+            <div className="relative mt-0 z-10 grid grid-cols-[65px_repeat(7,_1fr)]" style={{ height: '800px' }}>
               
               {/* Left-side Hour Indicators (8:00 to 18:00) */}
-              <div className="col-span-1 border-r bg-white flex flex-col select-none text-[10px] text-slate-400 font-bold divide-y divide-[#e2e8f0]/40">
+              <div className="col-span-1 border-r border-slate-150 bg-white flex flex-col select-none text-[10px] text-slate-405 font-medium divide-y divide-slate-100/50">
                 {Array.from({ length: 11 }).map((_, hourOffset) => {
                   const hourLabel = 8 + hourOffset;
                   const ampm = hourLabel >= 12 ? 'PM' : 'AM';
                   const formattedHour = hourLabel > 12 ? hourLabel - 12 : hourLabel;
                   return (
-                    <div key={hourOffset} className="h-20 text-right pr-2 pt-1 flex flex-col justify-start">
-                      <span>{String(formattedHour).padStart(2, '0')}:00</span>
-                      <span className="text-[8px] opacity-75">{ampm}</span>
+                    <div key={hourOffset} className="h-20 text-right pr-3.5 pt-2 flex flex-col justify-start">
+                      <span className="font-semibold text-slate-600">{String(formattedHour).padStart(2, '0')}:00</span>
+                      <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wide">{ampm}</span>
                     </div>
                   );
                 })}
@@ -544,16 +585,18 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
               {/* Day grid grids background pattern */}
               {Array.from({ length: 7 }).map((_, dayIdx) => (
-                <div key={dayIdx} className="col-span-1 border-r border-slate-200/50 min-h-[800px] relative divide-y divide-[#e2e8f0]/30">
+                <div key={dayIdx} className="col-span-1 border-r border-slate-100/50 min-h-[800px] relative divide-y divide-slate-100/50 bg-white">
                   {Array.from({ length: 11 }).map((_, hourIdx) => (
                     <div 
                       key={hourIdx} 
-                      className="h-20 border-b border-dashed border-[#e2e8f0]/30 hover:bg-[#e6eeff]/20 transition-all cursor-crosshair"
+                      className="h-20 border-b border-dashed border-slate-100/60 hover:bg-primary/[0.02]/30 hover:bg-slate-50 transition-all cursor-crosshair"
                       onClick={() => {
                         const targetDay = weekDays[dayIdx];
                         setNewDate(targetDay.toISOString().split('T')[0]);
                         const hour = 8 + hourIdx;
                         setNewTime(`${String(hour).padStart(2, '0')}:00`);
+                        setNewPetId('');
+                        setPetSearchQuery('');
                         setShowAddModal(true);
                       }}
                       title="Click directly to log appointment at this day slot"
@@ -574,15 +617,15 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 });
 
                 // Calculate relative percentage offset from Left and width of dynamic columns
-                const leftPercentage = `calc(60px + (100% - 60px) / 7 * ${dayIndex})`;
-                const widthPercentage = `calc((100% - 60px) / 7)`;
+                const leftPercentage = `calc(65px + (100% - 65px) / 7 * ${dayIndex})`;
+                const widthPercentage = `calc((100% - 65px) / 7)`;
 
                 const isSelected = selectedAppointmentId === app.id;
 
                 return (
                   <div
                     key={app.id}
-                    className="absolute p-0.5 z-20 cursor-pointer"
+                    className="absolute p-1 z-20 cursor-pointer"
                     style={{
                       left: leftPercentage,
                       width: widthPercentage,
@@ -595,33 +638,33 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     }}
                   >
                     <div 
-                      className={`h-full rounded-r-lg border-l-4 p-2 transition-all duration-200 overflow-hidden shadow-2xs hover:scale-[1.01] hover:shadow-xs flex flex-col justify-between ${colors.bg} ${
+                      className={`h-full rounded-xl border border-slate-100 pr-2.5 pl-3 py-2 transition-all duration-300 overflow-hidden shadow-2xs hover:-translate-y-0.5 hover:shadow-xs flex flex-col justify-between ${colors.bg} ${colors.accent} border-l-[4px] ${
                         isSelected 
-                          ? 'ring-2 ring-[#00647c] ring-offset-1 scale-[1.01] z-30 font-bold shadow-md' 
+                          ? 'ring-2 ring-primary ring-offset-2 scale-[1.01] z-30 font-semibold shadow-md' 
                           : ''
                       } ${app.status === 'CANCELLED' ? 'line-through grayscale opacity-50' : ''}`}
                     >
                       <div>
                         <div className="flex justify-between items-start gap-1 overflow-hidden">
-                          <span className="text-[10px] font-black truncate text-[#0d1c2e]">
+                          <span className="text-[11px] font-bold tracking-tight truncate text-slate-800">
                             {assignedPet ? assignedPet.name : 'Unknown Pet'}
                           </span>
-                          <span className="text-[8px] font-bold opacity-80 shrink-0 font-mono">
+                          <span className="text-[8.5px] font-semibold text-slate-500 shrink-0 font-mono bg-white/70 px-1 py-0.5 rounded border border-slate-150">
                             {startHourStr}
                           </span>
                         </div>
-                        <p className="text-[9px] font-bold opacity-80 truncate leading-tight mt-0.5">
+                        <p className="text-[9.5px] font-medium text-slate-650 truncate mt-1 leading-tight">
                           {app.reason}
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between text-[8px] mt-1 shrink-0 overflow-hidden">
-                        <span className="truncate opacity-90 max-w-[80px]">
-                          👨‍⚕️ {assignedVet ? assignedVet.name : 'Assigned DVM'}
+                      <div className="flex items-center justify-between text-[8px] mt-1.5 shrink-0 overflow-hidden font-sans text-slate-500">
+                        <span className="truncate max-w-[80px] font-semibold">
+                          👨‍⚕️ {assignedVet ? assignedVet.name.split(' ').pop() : 'DVM'}
                         </span>
-                        <span className={`px-1 py-[1px] rounded-[3px] text-[7px] font-bold text-white uppercase ${
-                          app.status === 'CONFIRMED' ? 'bg-emerald-600' :
-                          app.status === 'CHECKED_IN' ? 'bg-blue-600' :
+                        <span className={`px-1.5 py-[1.5px] rounded-md text-[7px] font-bold text-white uppercase tracking-wider ${
+                          app.status === 'CONFIRMED' ? 'bg-[#059669]' :
+                          app.status === 'CHECKED_IN' ? 'bg-primary' :
                           app.status === 'IN_PROGRESS' ? 'bg-amber-600' :
                           app.status === 'COMPLETED' ? 'bg-slate-500' : 'bg-red-600'
                         }`}>
@@ -643,30 +686,30 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
       {/* 3. Floating Action Details Tooltip Popover if card is highlighted */}
       {selectedAppointmentId && activePopoverAppointment && (
         <div 
-          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-3xs"
+          className="fixed inset-0 z-45 bg-black/35 backdrop-blur-3xs transition-all flex items-center justify-center"
           onClick={() => setSelectedAppointmentId(null)}
         >
           <div 
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl border border-outline-variant p-5 z-50 w-full max-w-sm"
+            className="bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] p-6 z-50 w-full max-w-sm font-sans relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <span className="p-1 rounded-md bg-[#eff4ff] text-primary">
-                  <CalendarIcon className="w-5 h-5 text-[#00647c]" />
+                <span className="p-1 rounded-md bg-slate-100 text-black border border-slate-200">
+                  <CalendarIcon className="w-5 h-5 text-black" />
                 </span>
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                    Appointment Details
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 font-mono">
+                    Appointment Info
                   </h4>
-                  <p className="text-[10px] text-slate-400 font-mono">
+                  <p className="text-[9px] text-slate-400 font-mono">
                     ID: {activePopoverAppointment.id}
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedAppointmentId(null)}
-                className="text-slate-400 hover:text-slate-700 bg-slate-50 border p-1 rounded-md text-xs font-bold"
+                className="text-slate-400 hover:text-black bg-slate-50 border border-[#E5E7EB] p-1 rounded-md text-xs font-bold cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -674,41 +717,41 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
             {reschedulingId === activePopoverAppointment.id ? (
               /* Inline Edit Reschedule View */
-              <form onSubmit={handleSaveReschedule} className="space-y-3 bg-[#eff4ff] p-3 rounded-lg border">
-                <p className="text-[10px] font-bold text-[#00647c] uppercase">
+              <form onSubmit={handleSaveReschedule} className="space-y-4 bg-[#FAFAFA] p-4 rounded-xl border border-[#E5E7EB]">
+                <p className="text-[10px] font-bold text-black uppercase tracking-wider font-mono">
                   ⚡ Reschedule Time Slot
                 </p>
                 <div>
-                  <label className="block text-[8px] font-bold uppercase text-slate-500 mb-1">New Date</label>
+                  <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1 font-mono">New Date</label>
                   <input 
                     type="date"
                     value={rescheduleDate}
                     onChange={(e) => setRescheduleDate(e.target.value)}
-                    className="w-full text-xs p-1.5 rounded border border-[#cbd5e1] focus:outline-none"
+                    className="w-full text-xs p-2 rounded-lg border border-[#E5E7EB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[8px] font-bold uppercase text-slate-500 mb-1">New Start Time</label>
+                  <label className="block text-[9px] font-bold uppercase text-slate-500 mb-1 font-mono">New Start Time</label>
                   <input 
                     type="time"
                     value={rescheduleTime}
                     onChange={(e) => setRescheduleTime(e.target.value)}
-                    className="w-full text-xs p-1.5 rounded border border-[#cbd5e1] focus:outline-none"
+                    className="w-full text-xs p-2 rounded-lg border border-[#E5E7EB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white"
                     required
                   />
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex gap-2 p-1 border-t">
                   <button 
                     type="submit"
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-1 text-xs rounded font-bold uppercase"
+                    className="flex-1 bg-black hover:bg-black/90 text-white py-2 text-xs rounded-lg font-bold font-mono uppercase tracking-wider transition-all"
                   >
                     Confirm Change
                   </button>
                   <button 
                     type="button"
                     onClick={() => setReschedulingId(null)}
-                    className="bg-slate-400 text-white px-3 py-1 text-xs rounded font-bold"
+                    className="bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 px-3 py-2 text-xs rounded-lg font-bold font-mono uppercase tracking-wider"
                   >
                     Back
                   </button>
@@ -719,35 +762,35 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
               <div className="space-y-4">
                 
                 {/* Pet Quick info Card */}
-                <div className="flex items-center gap-3 bg-[#f8f9ff] p-3 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3 bg-[#FAFAFA] p-3.5 rounded-xl border border-[#E5E7EB]">
                   <img 
                     src={activePopoverPet?.avatar || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=100'} 
                     alt={activePopoverPet?.name}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100"
+                    className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-200"
                     referrerPolicy="no-referrer"
                   />
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800 leading-none flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-slate-900 leading-none flex items-center gap-2">
                       {activePopoverPet?.name || 'Unknown Pet'}
-                      <span className="text-[10px] bg-sky-100 text-[#00647c] px-1.5 py-[1px] rounded font-bold">
+                      <span className="text-[9px] bg-slate-100 text-slate-800 px-1.5 py-[1px] rounded font-mono font-bold tracking-wider uppercase border border-slate-200">
                         {activePopoverPet?.species}
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Breed: <span className="font-semibold">{activePopoverPet?.breed}</span> • {activePopoverPet?.age}
+                      Breed: <span className="font-semibold text-slate-700">{activePopoverPet?.breed}</span> • {activePopoverPet?.age}
                     </p>
                   </div>
                 </div>
 
                 {/* Details list */}
-                <div className="space-y-2.5 text-xs text-slate-705">
+                <div className="space-y-2.5 text-xs text-slate-600">
                   <div className="flex items-center gap-2.5">
                     <User className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Owner: <strong className="text-slate-800">{activePopoverClient?.name || 'Walk-in Client'}</strong></span>
+                    <span>Owner: <strong className="text-slate-800 font-semibold">{activePopoverClient?.name || 'Walk-in Client'}</strong></span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Time: <strong className="text-slate-800">
+                    <span>Time: <strong className="text-slate-800 font-semibold">
                       {new Date(activePopoverAppointment.dateTime).toLocaleTimeString('en-US', {
                         hour: 'numeric', minute: '2-digit'
                       })}
@@ -755,21 +798,21 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   </div>
                   <div className="flex items-center gap-2.5">
                     <Info className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Doctor: <strong className="text-slate-800">{activePopoverDoctor?.name || 'Unassigned'}</strong></span>
+                    <span>Doctor: <strong className="text-slate-800 font-semibold">{activePopoverDoctor?.name || 'Unassigned'}</strong></span>
                   </div>
 
                   {activePopoverPet?.alertAllergies && activePopoverPet.alertAllergies.length > 0 && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-900 flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="block">CRITICAL EHR LABELS:</strong>
+                        <strong className="block font-mono text-[9px] uppercase tracking-wider">Clinical Alerts:</strong>
                         <span>Allergies: {activePopoverPet.alertAllergies.join(', ')}</span>
                       </div>
                     </div>
                   )}
 
                   {activePopoverAppointment.notes && (
-                    <div className="p-2 bg-slate-50 rounded-lg text-[10px] italic text-slate-500">
+                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] italic text-slate-500">
                       <strong>Notes:</strong> "{activePopoverAppointment.notes}"
                     </div>
                   )}
@@ -782,7 +825,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   {activePopoverAppointment.status !== 'CHECKED_IN' && activePopoverAppointment.status !== 'COMPLETED' && (
                     <button 
                       onClick={() => handleStatusChange(activePopoverAppointment.id, 'CHECKED_IN')}
-                      className="w-full bg-[#00647c] text-white py-2 rounded-lg font-bold text-xs uppercase hover:bg-cyan-700 transition-colors col-span-2 shadow-xs cursor-pointer flex items-center justify-center gap-1"
+                      className="w-full bg-black hover:bg-[#111827] active:scale-95 text-white py-2.5 rounded-lg font-bold text-xs uppercase hover:bg-cyan-700 transition-all col-span-2 shadow-xs cursor-pointer flex items-center justify-center gap-2 font-mono tracking-wider"
                     >
                       <CheckCircle className="w-3.5 h-3.5" /> Check In Patient
                     </button>
@@ -791,7 +834,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   {activePopoverAppointment.status === 'CHECKED_IN' && (
                     <button 
                       onClick={() => handleStatusChange(activePopoverAppointment.id, 'IN_PROGRESS')}
-                      className="w-full bg-amber-500 text-white py-2 rounded-lg font-bold text-xs uppercase hover:bg-amber-600 transition-colors col-span-2 shadow-xs cursor-pointer flex items-center justify-center gap-1"
+                      className="w-full bg-black hover:bg-[#111827] active:scale-95 text-white py-2.5 rounded-lg font-bold text-xs uppercase transition-all col-span-2 shadow-xs cursor-pointer flex items-center justify-center gap-2 font-mono tracking-wider"
                     >
                       🧪 Escalate to Treatment
                     </button>
@@ -804,7 +847,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                       setRescheduleTime(dt.toTimeString().split(' ')[0].substring(0, 5));
                       setReschedulingId(activePopoverAppointment.id);
                     }}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg font-bold text-xs uppercase transition-colors cursor-pointer"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-[#E5E7EB] py-2.5 rounded-lg font-bold text-xs uppercase cursor-pointer text-center font-mono tracking-wider transition-all"
                   >
                     Reschedule
                   </button>
@@ -816,7 +859,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                         setSelectedAppointmentId(null);
                       }
                     }}
-                    className="border border-red-350 text-red-650 text-red-700 hover:bg-red-50 py-2 rounded-lg font-bold text-xs uppercase transition-colors cursor-pointer"
+                    className="border border-red-200 hover:bg-red-50 text-red-650 text-red-600 py-2.5 rounded-lg font-bold text-xs uppercase cursor-pointer text-center font-mono tracking-wider transition-all"
                   >
                     Cancel Slot
                   </button>
@@ -831,43 +874,89 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
       {/* 4. Beautiful New Appointment Popup/Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-3xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-outline-variant/60 w-full max-w-md overflow-hidden flex flex-col">
-            <div className="bg-[#eff4ff] px-5 py-4 border-b flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-[#0d1c2e] flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-[#00647c]" />
-                📅 Schedule New Appointment Slot
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-3xs flex items-center justify-center z-50 p-4 font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] w-full max-w-md overflow-hidden flex flex-col">
+            <div className="bg-[#FAFAFA] px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2 font-mono">
+                <PlusCircle className="w-4 h-4 text-black" />
+                📅 Schedule Patient Appointment
               </h3>
               <button 
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold"
+                className="text-slate-400 hover:text-black font-bold cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateNewAppointmentForm} className="p-5 space-y-3.5 text-xs">
+            <form onSubmit={handleCreateNewAppointmentForm} className="p-5 space-y-4 text-xs">
               
-              {/* Pet Selection */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  1. Choose Pet &amp; Co-Owner Chart
+              {/* Client & Pet Search Field */}
+              <div className="relative">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>1. Client &amp; Pet Search</span>
+                  <span className="text-[9px] font-mono text-slate-400">Search instantly</span>
                 </label>
-                <select
-                  value={newPetId}
-                  onChange={(e) => setNewPetId(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border focus:ring-[#00647c] focus:border-[#00647c]"
-                  required
-                >
-                  {pets.map(p => {
-                    const client = clients.find(c => c.id === p.ownerId);
-                    return (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.species} – {p.breed}) owner: {client ? client.name : 'Unknown'}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={petSearchQuery}
+                    onChange={(e) => {
+                      setPetSearchQuery(e.target.value);
+                      if (!e.target.value) {
+                        setNewPetId('');
+                      }
+                    }}
+                    placeholder="Type client name, pet name, or breed..."
+                    className="w-full text-xs pl-8 pr-3 py-2.5 rounded-xl border border-[#E5E7EB] focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white"
+                  />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-[11px] text-slate-400" />
+                </div>
+
+                {/* Live suggestion list */}
+                {filteredPetsForSearch.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                    {filteredPetsForSearch.map(p => {
+                      const client = clients.find(c => c.id === p.ownerId);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setNewPetId(p.id);
+                            setPetSearchQuery(`${p.name} (Owner: ${client ? client.name : 'Unknown'})`);
+                          }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer text-xs"
+                        >
+                          <div>
+                            <p className="font-bold text-slate-800">{p.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{p.species} • {p.breed}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded border border-slate-200">
+                              Owner: {client ? client.name : 'Walk-in'}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Selected Pet Details Badge */}
+                {newPetId && (
+                  <div className="mt-1.5 flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    <span>
+                      Selected Asset: <strong>{pets.find(p => p.id === newPetId)?.name || 'Unknown'}</strong> 
+                      {(() => {
+                        const pet = pets.find(p => p.id === newPetId);
+                        const owner = pet ? clients.find(c => c.id === pet.ownerId) : null;
+                        return owner ? ` (Owner: ${owner.name})` : '';
+                      })()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Doctors Select list */}
@@ -878,7 +967,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 <select
                   value={newStaffId}
                   onChange={(e) => setNewStaffId(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border focus:ring-[#00647c] focus:border-[#00647c]"
+                  className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] bg-white focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
                   required
                 >
                   {doctorsList.map(doc => (
@@ -897,7 +986,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     type="date"
                     value={newDate}
                     onChange={(e) => setNewDate(e.target.value)}
-                    className="w-full text-xs p-2 rounded-lg border"
+                    className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none"
                     required
                   />
                 </div>
@@ -907,7 +996,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full text-xs p-2 rounded-lg border"
+                    className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none"
                     required
                   />
                 </div>
@@ -916,7 +1005,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   <select
                     value={newDuration}
                     onChange={(e) => setNewDuration(Number(e.target.value))}
-                    className="w-full text-xs p-2 rounded-lg border"
+                    className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] bg-white text-slate-700 focus:outline-none"
                   >
                     <option value={15}>15m Slot</option>
                     <option value={30}>30m Slot</option>
@@ -935,9 +1024,9 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                 <select
                   value={newReason}
                   onChange={(e) => setNewReason(e.target.value)}
-                  className="w-full text-xs p-2 rounded-lg border focus:ring-[#00647c] focus:border-[#00647c]"
+                  className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] bg-white focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
                 >
-                  <option value="Checkup">General Checkup &amp; Routine Wellnes</option>
+                  <option value="Checkup">General Checkup &amp; Routine Wellness</option>
                   <option value="Vaccination">Vaccination and Booster Boost</option>
                   <option value="Surgery">Ovariosalpingectomy / Surgery Spay Prep</option>
                   <option value="Dental">Dental Scaling &amp; Abscess Scaling</option>
@@ -951,7 +1040,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     value={newCustomReasonDetail}
                     onChange={(e) => setNewCustomReasonDetail(e.target.value)}
                     placeholder="Enter custom medical consultation symptoms..."
-                    className="w-full text-xs mt-2 p-2 rounded-lg border"
+                    className="w-full text-xs mt-2 p-2.5 rounded-xl border border-[#E5E7EB] focus:outline-none"
                     required
                   />
                 )}
@@ -964,22 +1053,23 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
                   placeholder="Requests weight counseling, stress indicators..."
-                  className="w-full text-xs p-2 rounded-lg border h-16 resize-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-[#E5E7EB] h-16 resize-none focus:outline-none"
                 />
               </div>
 
               {/* Submit panel */}
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button 
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-slate-50 text-slate-700 uppercase font-bold text-[10px]"
+                  className="px-4 py-2 border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 uppercase font-bold text-[10px] rounded-lg tracking-wider font-mono transition-all"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-5 py-2 bg-[#00647c] text-white rounded-lg hover:bg-cyan-700 transition-colors uppercase font-bold text-[10px]"
+                  disabled={!newPetId}
+                  className="px-5 py-2 bg-black text-white rounded-lg hover:bg-[#111827] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all uppercase font-bold text-[10px] tracking-wider font-mono"
                 >
                   Book Appointment
                 </button>
@@ -993,12 +1083,16 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
       {/* Primary Floating Action "+ New" Button inside Week Calendar Container */}
       <button 
         type="button"
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-8 right-8 bg-[#00647c] text-white h-14 px-5 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2.5 z-40 group cursor-pointer border-2 border-white"
+        onClick={() => {
+          setNewPetId('');
+          setPetSearchQuery('');
+          setShowAddModal(true);
+        }}
+        className="fixed bottom-8 right-8 bg-black hover:bg-[#111827] text-white h-14 px-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all flex items-center gap-2.5 z-40 group cursor-pointer border-2 border-white font-mono uppercase tracking-wider"
         title="Schedule Live Appointment"
       >
         <Plus className="w-5 h-5 shrink-0" />
-        <span className="font-bold text-xs uppercase tracking-wider">Book Slot</span>
+        <span className="font-bold text-xs">Book Slot</span>
       </button>
 
     </div>

@@ -5,7 +5,7 @@
  * Clinical dashboards for DVM, Reception, Tech, Owner and Accountant.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, Calendar, CreditCard, DollarSign, Users, ShieldAlert,
   ClipboardList, Stethoscope, AlertTriangle, CheckSquare, 
@@ -199,7 +199,7 @@ export function VetDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Patient Queue Tracker */}
-        <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b pb-3 border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
@@ -277,7 +277,7 @@ export function VetDashboard({
         </div>
 
         {/* Diagnostic Staff Collab and Block Calendar */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
             🧑‍⚕️ Inter-Staff Clinical Request
           </h3>
@@ -337,7 +337,7 @@ export function VetDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Overnight stay transfer command */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
             🌙 In-Patient Overnight Stay Placement
           </h3>
@@ -380,7 +380,7 @@ export function VetDashboard({
         </div>
 
         {/* Peer split consult split setup */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
             <Stethoscope className="w-5 h-5 text-primary" /> Multi-Clinician Collaboration Request
           </h3>
@@ -653,7 +653,7 @@ export function ReceptionDashboard({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       
       {/* Active Appointments Checkins */}
-      <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
           <Calendar className="w-5 h-5 text-primary" /> Front Desk Operational Queue &amp; Check-ins
         </h3>
@@ -740,7 +740,7 @@ export function ReceptionDashboard({
       </div>
 
       {/* Booking Form and Double Account Setup */}
-      <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
         
         {/* Toggle Scheduler Mode */}
         <div className="flex border rounded-lg overflow-hidden border-slate-200 self-stretch">
@@ -1147,7 +1147,7 @@ export function TechDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Inpatient / Overnight Stay Board */}
-        <div className="lg:col-span-2 bg-white border border-slate-205 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b pb-3 border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-2">
@@ -1218,7 +1218,7 @@ export function TechDashboard({
         </div>
 
         {/* Rapid Nursing Task Register Form */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-850 uppercase flex items-center gap-1.5">
             📝 Write Nursing Order
           </h3>
@@ -1288,7 +1288,7 @@ export function TechDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Lab Order queue */}
-        <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-[#0d1c2e] uppercase tracking-wide flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary animate-pulse" /> Diagnostic Laboratory Assay Drawer
           </h3>
@@ -1349,7 +1349,7 @@ export function TechDashboard({
         </div>
 
         {/* Surgeon Notifications Alert Log */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
             <Bell className="w-5 h-5 text-amber-500" /> Surgeon Broadcast &amp; Alerts Log
           </h3>
@@ -1386,6 +1386,7 @@ interface ManagerDashboardProps {
   invoices: Invoice[];
   splits: RevenueSplit[];
   allStaff: Staff[];
+  labOrders: LabOrder[];
   treatmentPrices: any[];
   medicationPrices: any[];
   overnightTasks: any[];
@@ -1413,6 +1414,7 @@ export function ManagerDashboard({
   invoices,
   splits,
   allStaff,
+  labOrders,
   treatmentPrices,
   medicationPrices,
   overnightTasks,
@@ -1433,7 +1435,21 @@ export function ManagerDashboard({
   onChangeOvernightTasks,
   onChangePets
 }: ManagerDashboardProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'OVERVIEW' | 'PRICING' | 'INVENTORY' | 'STAFF_PERMS' | 'ROSTER' | 'PROMOTIONS'>('OVERVIEW');
+  const [activeSubTab, setActiveSubTab] = useState<'OVERVIEW' | 'PRICING' | 'INVENTORY' | 'PROMOTIONS'>('OVERVIEW');
+
+  // Listen for shift schedule updates to live-reload calendar content
+  const [scheduleVersion, setScheduleVersion] = useState(0);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setScheduleVersion(prev => prev + 1);
+    };
+    window.addEventListener('vet_schedule_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('vet_schedule_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   // Supplier Order Drawer Form states
   const [targetSupplier, setTargetSupplier] = useState('Zoetis Global');
@@ -1514,148 +1530,275 @@ export function ManagerDashboard({
     onChangeStaff(prev => prev.map(s => s.id === staffId ? { ...s, active: !s.active } : s));
   };
 
-  // Quick Operational Metrics
-  const settledRevenue = useMemo(() => {
-    return invoices.filter(i => i.status === 'PAID').reduce((sum, inv) => sum + inv.total, 0);
-  }, [invoices]);
+  // Quick Operational Metrics - Clinic Operations Focused
+  const checkedInCount = useMemo(() => {
+    return pets.filter(p => p.status === 'Checked In').length;
+  }, [pets]);
 
-  const outstandingRevenue = useMemo(() => {
-    return invoices.filter(i => i.status !== 'PAID').reduce((sum, inv) => sum + inv.total, 0);
-  }, [invoices]);
+  const activeSurgeriesCount = useMemo(() => {
+    return pets.filter(p => p.status === 'In Surgery' || p.status === 'In Treatment').length;
+  }, [pets]);
 
   const activeInpatientsCount = useMemo(() => {
     return pets.filter(p => p.status === 'Overnight Stay').length;
   }, [pets]);
 
+  const activeStaffCount = useMemo(() => {
+    return allStaff.filter(s => s.active).length;
+  }, [allStaff]);
+
   return (
     <div className="space-y-6">
-      
-      {/* Dynamic Sub Tab Navigation */}
-      <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-none gap-2">
-        {(['OVERVIEW', 'PRICING', 'INVENTORY', 'STAFF_PERMS', 'ROSTER', 'PROMOTIONS'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveSubTab(tab)}
-            className={`py-2 px-4 text-xs font-bold uppercase transition-colors select-none ${
-              activeSubTab === tab ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {tab === 'STAFF_PERMS' ? 'Access Permissions' : tab}
-          </button>
-        ))}
-      </div>
 
-      {/* SUB-PANEL 1: PERFORMANCE OVERVIEW STATS */}
-      {activeSubTab === 'OVERVIEW' && (
+      {/* CLINICAL PERFORMANCE OVERVIEW */}
+      {true && (
         <div className="space-y-6">
           
-          {/* Quick Stats Grid */}
+          {/* Quick Stats Grid - Clinic Operations Focused */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
-            <div className="bg-white border rounded-2xl p-4 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Operations Revenue</span>
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Patient Queue</span>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-600" />
-                <h4 className="text-xl font-bold font-mono text-slate-800">${settledRevenue.toFixed(2)}</h4>
+                <Users className="w-5 h-5 text-amber-500" />
+                <h4 className="text-xl font-bold text-slate-850">{checkedInCount} Pets</h4>
               </div>
-              <p className="text-[10px] text-slate-400">Total settled &amp; paid funds</p>
+              <p className="text-[10px] text-slate-400">Awaiting clinical exam</p>
             </div>
 
-            <div className="bg-white border rounded-2xl p-4 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Outstanding Balance</span>
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">In Surgery / Treatment</span>
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
-                <h4 className="text-xl font-bold font-mono text-slate-800">${outstandingRevenue.toFixed(2)}</h4>
+                <Activity className="w-5 h-5 text-rose-500 animate-pulse" />
+                <h4 className="text-xl font-bold text-slate-850">{activeSurgeriesCount} cases</h4>
               </div>
-              <p className="text-[10px] text-slate-400">Due at Front Desk</p>
+              <p className="text-[10px] text-slate-400">Operating suites in operation</p>
             </div>
 
-            <div className="bg-white border rounded-2xl p-4 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Active Inpatients</span>
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Active Overnight Stay</span>
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-indigo-500" />
-                <h4 className="text-xl font-bold text-slate-800">{activeInpatientsCount} Pets</h4>
+                <h4 className="text-xl font-bold text-slate-850">{activeInpatientsCount} Pets</h4>
               </div>
-              <p className="text-[10px] text-slate-400">Staying over night for care</p>
+              <p className="text-[10px] text-slate-400">Under overnight care</p>
             </div>
 
-            <div className="bg-white border rounded-2xl p-4 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Clinical Providers</span>
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Clinicians Duty</span>
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                <h4 className="text-xl font-bold text-slate-800">{allStaff.filter(s => s.active).length} Active</h4>
+                <Shield className="w-5 h-5 text-primary" />
+                <h4 className="text-xl font-bold text-slate-850">{activeStaffCount} Shifting</h4>
               </div>
-              <p className="text-[10px] text-slate-400">Surgeons and nurses on shift</p>
+              <p className="text-[10px] text-slate-400">Practitioners active on floor</p>
             </div>
 
           </div>
 
+          {/* 📅 On-Duty Clinical Faculty Weekly Calendar */}
+          <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4" id="overview-duty-calendar">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                  📅 On-Duty Clinical Faculty Weekly Calendar
+                </h2>
+                <span className="text-[10px] text-slate-400 mt-1 block">On-duty schedule for currently covering active practitioners (May 18 – May 24, 2026).</span>
+              </div>
+              <span className="text-[9px] bg-[#eff4ff] border border-blue-150 text-[#00647c] px-2 py-0.5 rounded-lg font-mono font-bold">
+                Weekly shift
+              </span>
+            </div>
+
+            {/* Calendar weekly grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              {[
+                { name: 'Mon', date: 'May 18' },
+                { name: 'Tue', date: 'May 19' },
+                { name: 'Wed', date: 'May 20' },
+                { name: 'Thu', date: 'May 21' },
+                { name: 'Fri', date: 'May 22' },
+                { name: 'Sat', date: 'May 23' },
+                { name: 'Sun', date: 'May 24' },
+              ].map((day, idx) => {
+                const activeStaff = allStaff.filter(s => s.active);
+                
+                // Load weekly schedule from localstorage
+                let savedSched: { [staffId: string]: string[] } | null = null;
+                if (typeof window !== 'undefined') {
+                  const saved = localStorage.getItem('vet_weekly_schedule');
+                  if (saved) {
+                    try {
+                      savedSched = JSON.parse(saved);
+                    } catch (e) {
+                      // ignore
+                    }
+                  }
+                }
+                
+                // If saved schedule exists, filter staff who have a shift scheduled on this day
+                const onDutyStaffForDay = savedSched 
+                  ? allStaff.filter(s => {
+                      const shifts = savedSched![s.id];
+                      return shifts && shifts[idx] && shifts[idx] !== 'OFF';
+                    }).map(s => {
+                      const shiftCode = savedSched![s.id][idx];
+                      return {
+                        ...s,
+                        currentDayShift: shiftCode
+                      };
+                    })
+                  : activeStaff.filter((s, sIdx) => {
+                      const shiftHash = (sIdx + idx) % 3;
+                      return shiftHash !== 0; // works ~2/3 of days
+                    }).map(s => ({
+                      ...s,
+                      currentDayShift: 'DAY'
+                    }));
+
+                return (
+                  <div key={day.name} className={`p-3 rounded-xl border flex flex-col h-full min-h-[140px] space-y-2 bg-[#f8f9fa] transition-all duration-150 hover:shadow-3xs ${
+                    day.name === 'Fri' ? 'border-[#00647c] bg-[#eff4ff]/10' : 'border-slate-200'
+                  }`}>
+                    {/* Day label */}
+                    <div className="flex justify-between items-center pb-1.5 border-b border-dashed border-slate-200">
+                      <span className="text-xs font-bold text-slate-805">{day.name}</span>
+                      <span className="text-[9.5px] text-slate-400 font-mono font-medium">{day.date}</span>
+                    </div>
+
+                    {/* Duty list */}
+                    <div className="space-y-1.5 flex-1 overflow-y-auto scrollbar-none">
+                      {onDutyStaffForDay.length === 0 ? (
+                        <span className="text-[9px] italic text-slate-400 block pt-4 text-center">Standby</span>
+                      ) : (
+                        onDutyStaffForDay.map(staff => (
+                          <div key={staff.id} className="p-1 px-1.5 bg-white border border-slate-150 rounded-lg flex items-center gap-1.5 hover:shadow-2xs hover:-translate-y-0.5 transition-all duration-150 hover:border-slate-300 cursor-default">
+                            <img 
+                              src={staff.avatar} 
+                              alt={staff.name} 
+                              referrerPolicy="no-referrer"
+                              className="w-4.5 h-4.5 rounded-full border bg-slate-50 shrink-0" 
+                            />
+                            <div className="truncate min-w-0">
+                              <span className="text-[9px] font-bold text-slate-755 block truncate leading-none">
+                                {staff.name.replace('Dr. ', '')}
+                              </span>
+                              <span className="text-[7.5px] font-bold uppercase text-[#00647c] tracking-tight block leading-none mt-0.5">
+                                {staff.role} • {staff.currentDayShift === 'DAY' ? 'Day' : staff.currentDayShift === 'NIGHT' ? 'Night' : staff.currentDayShift === 'ON_CALL' ? 'On-Call' : 'Day'}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* Financial Auditing Ledger Report */}
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
+            {/* Live Surgery & Hospital Inpatients Census */}
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-4">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b pb-3">
-                🧮 Monthly Operational Accounting Audit Ledgers
+                🩺 🏥 Hospital Active Surgery &amp; In-Patient Ward Census
               </h3>
               
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs p-3 bg-slate-50 border rounded-lg">
-                  <span className="font-semibold text-slate-700">Clinical Consultation Billings:</span>
-                  <span className="font-mono font-bold text-slate-800">$645.00</span>
-                </div>
-                <div className="flex justify-between items-center text-xs p-3 bg-slate-50 border rounded-lg">
-                  <span className="font-semibold text-slate-700">Surgery &amp; Procedures Split Value:</span>
-                  <span className="font-mono font-bold text-indigo-700">$2,450.00</span>
-                </div>
-                <div className="flex justify-between items-center text-xs p-3 bg-slate-50 border rounded-lg">
-                  <span className="font-semibold text-slate-700">Pharmacy &amp; Drug Sales Income:</span>
-                  <span className="font-mono font-bold text-emerald-800">$1,114.50</span>
-                </div>
-                <div className="flex justify-between items-center text-xs p-3 bg-slate-50 border rounded-lg">
-                  <span className="font-semibold text-slate-700">Diagnostic Assays Revenue:</span>
-                  <span className="font-mono font-bold text-sky-800">$480.00</span>
-                </div>
+              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
+                {pets.filter(p => p.status !== 'Discharged').length === 0 ? (
+                  <p className="text-xs text-slate-500 py-6 text-center">No active surgeries or hospitalizations registered today.</p>
+                ) : (
+                  pets.filter(p => p.status !== 'Discharged').map(p => {
+                    const client = clients.find(c => c.id === p.ownerId);
+                    return (
+                      <div key={p.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <img src={p.avatar} alt={p.name} className="w-9 h-9 rounded-full object-cover border" />
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-850">{p.name} <span className="text-[9.5px] text-slate-400 font-medium">({p.species} • {p.weight} kg)</span></h4>
+                            <p className="text-[9px] text-slate-400 font-medium leading-none">Owner: {client?.name}</p>
+                          </div>
+                        </div>
+
+                        {/* Direct Clinical Status Controller */}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[8px] font-extrabold font-mono uppercase px-1.5 py-0.5 rounded ${
+                            p.status === 'In Surgery' ? 'bg-indigo-100 text-indigo-800 animate-pulse' :
+                            p.status === 'In Treatment' ? 'bg-sky-100 text-sky-800' :
+                            p.status === 'Overnight Stay' ? 'bg-violet-100 text-violet-850' : 'bg-amber-105 bg-amber-50 text-amber-800'
+                          }`}>
+                            {p.status}
+                          </span>
+
+                          <select
+                            value={p.status}
+                            onChange={(e) => {
+                              const newStatus = e.target.value as any;
+                              onChangePets(prev => prev.map(x => x.id === p.id ? { ...x, status: newStatus } : x));
+                              alert(`Patient [${p.name}] clinical status transitioned to: ${newStatus}`);
+                            }}
+                            className="text-[9px] font-bold p-1 border bg-white rounded focus:outline-none focus:ring-1 focus:ring-primary select-none cursor-pointer"
+                          >
+                            <option value="Checked In">Checked In</option>
+                            <option value="In Surgery">In Surgery</option>
+                            <option value="In Treatment">In Treatment</option>
+                            <option value="Overnight Stay">Overnight Stay</option>
+                            <option value="Discharged">Discharge Pet</option>
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
-            {/* Existing Split payouts */}
-            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                ⚖️ Surgeon Revenue Division &amp; Stipends
+            {/* Diagnostic Laboratories Assay Feeds */}
+            <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-200 space-y-4">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b pb-3">
+                🔬 Diagnostic Laboratories Assay &amp; Labs Status Queue
               </h3>
               
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="bg-slate-50 font-bold border-b text-[10px]">
-                      <th className="p-2">Surgeon / Nurse</th>
-                      <th className="p-2">Split Payout</th>
-                      <th className="p-2">InvoiceID</th>
-                      <th className="p-2 text-right">Fund Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {splits.slice(0, 4).map(s => {
-                      const staffMember = allStaff.find(st => st.id === s.staffId);
-                      return (
-                        <tr key={s.id} className="border-b last:border-none">
-                          <td className="p-2 font-semibold flex items-center gap-2">
-                            <span className="font-bold">{staffMember?.name.replace('Dr. ', '')}</span>
-                          </td>
-                          <td className="p-2 font-mono font-bold text-emerald-700">${s.splitAmount.toFixed(2)}</td>
-                          <td className="p-2 text-slate-500 font-mono text-[10px]">{s.invoiceId.toUpperCase()}</td>
-                          <td className="p-2 text-right">
-                            <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
-                              s.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {s.status}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                {labOrders.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-6 text-center">No diagnostic laboratory orders in queue.</p>
+                ) : (
+                  labOrders.map(order => {
+                    const pet = pets.find(p => p.id === order.petId);
+                    const creator = allStaff.find(s => s.id === order.staffId);
+                    return (
+                      <div key={order.id} className="p-3 bg-slate-55 bg-gradient-to-r from-sky-50/10 to-white border rounded-xl flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-800">{order.testName}</span>
+                            {order.isHighRisk && (
+                              <span className="text-[7.5px] font-extrabold bg-red-100 text-red-800 px-1 py-[0.5px] rounded animate-pulse font-mono tracking-tight uppercase">HIGH RISK WARNING</span>
+                            )}
+                          </div>
+                          
+                          <p className="text-[9px] font-semibold text-slate-400 mt-1 leading-none">
+                            Patient: <span className="text-slate-600 font-bold">{pet?.name || 'Inpatient'}</span> • Ordered by: {creator?.name.replace('Dr. ', '')}
+                          </p>
+                          {order.resultNotes && (
+                            <p className="text-[9px] italic text-slate-500 font-medium mt-1 bg-white p-1 rounded border border-dashed font-mono">
+                              Results findings: {order.resultNotes}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className={`text-[8.5px] font-extrabold px-1.5 py-0.5 rounded border ${
+                            order.status === 'COMPLETED'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                              : 'bg-amber-50 text-amber-800 border-amber-100 animate-pulse font-bold'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1666,7 +1809,7 @@ export function ManagerDashboard({
 
       {/* SUB-PANEL 2: SERVICE & WORKFLOW PRICING CATALOGS */}
       {activeSubTab === 'PRICING' && (
-        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm space-y-4">
           <div>
             <h3 className="text-sm font-bold text-slate-800 uppercase flex items-center gap-1">
               💰 Medical Procedures Service Fee Catalog
@@ -1721,7 +1864,7 @@ export function ManagerDashboard({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Inventory warning board */}
-          <div className="lg:col-span-2 bg-white border border-slate-205 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-850 uppercase flex items-center gap-1.5">
               📦 Medication Stocks &amp; Replenishments
             </h3>
@@ -1749,7 +1892,7 @@ export function ManagerDashboard({
           </div>
 
           {/* Supplier re-order command */}
-          <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase flex items-center gap-1.5">
               🚚 Supply Chain Order Drawer
             </h3>
@@ -1806,94 +1949,12 @@ export function ManagerDashboard({
         </div>
       )}
 
-      {/* SUB-PANEL 4: STAFF SERVICE ACCESS PERMISSIONS */}
-      {activeSubTab === 'STAFF_PERMS' && (
-        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-850 uppercase">
-              🔐 Staff Account Access Permissions Manager
-            </h3>
-            <p className="text-[10px] text-slate-400 mt-1">Configure regulatory permissions based on medical licenses and operational requirements.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allStaff.map(staff => (
-              <div key={staff.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center gap-3 border-b pb-2">
-                  <img src={staff.avatar} alt={staff.name} className="w-9 h-9 rounded-full object-cover border" />
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">{staff.name}</h4>
-                    <span className="text-[8px] bg-indigo-50 border font-mono font-bold px-1.5 py-0.2 rounded text-indigo-700 leading-none">
-                      {staff.role}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Specific checkboxes */}
-                <div className="space-y-2 text-[10.5px]">
-                  <label className="flex items-center gap-2 select-none cursor-pointer">
-                    <input type="checkbox" defaultChecked={staff.role !== Role.RECEPTION} onChange={() => handleTogglePerm(staff.id, 'SOAP_RECORDS_EDIT')} className="rounded text-[#00647c]" />
-                    <span className="text-slate-605 font-medium">SOAP EHR Editing (DVM/Nurses)</span>
-                  </label>
-                  <label className="flex items-center gap-2 select-none cursor-pointer">
-                    <input type="checkbox" defaultChecked={staff.role !== Role.TECH} onChange={() => handleTogglePerm(staff.id, 'BILLING_INVOICE')} className="rounded text-[#00647c]" />
-                    <span className="text-slate-605 font-medium">Generate Front-Desk Billings</span>
-                  </label>
-                  <label className="flex items-center gap-2 select-none cursor-pointer">
-                    <input type="checkbox" defaultChecked={staff.role === Role.DVM || staff.role === Role.TECH} onChange={() => handleTogglePerm(staff.id, 'PHARMACY_Dispense')} className="rounded text-[#00647c]" />
-                    <span className="text-slate-605 font-medium">Dispense Dangerous Pharmacological Drugs</span>
-                  </label>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* SUB-PANEL 5: shift cover schedules */}
-      {activeSubTab === 'ROSTER' && (
-        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-850 uppercase">
-                👨‍⚕️ Clinical Practitioner shift Coverage Schedules
-              </h3>
-              <p className="text-[10px] text-slate-400">Roster clinical coverage. Toggled providers are dynamically available to take patients and collaborate.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-            {allStaff.map(staff => (
-              <div key={staff.id} className="p-3 border rounded-xl flex items-center justify-between gap-3 bg-[#f8f9fa] hover:bg-white hover:shadow-xs transition-all">
-                <div className="flex items-center gap-2.5">
-                  <img src={staff.avatar} alt={staff.name} className="w-8 h-8 rounded-full object-cover border" />
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-850">{staff.name.replace('Dr. ', '')}</h4>
-                    <span className="text-[8px] uppercase tracking-wider font-mono font-bold block text-slate-400">{staff.role} • SURGEON</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleToggleRosterShift(staff.id)}
-                  className={`text-[8.5px] font-extrabold px-2.5 py-1.5 rounded transition-all select-none leading-none ${
-                    staff.active ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'
-                  }`}
-                >
-                  {staff.active ? 'COVERING ACTIVE' : 'OFF DUTY'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* SUB-PANEL 6: operating hours and promotions */}
       {activeSubTab === 'PROMOTIONS' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Operating hours settings config */}
-          <div className="bg-white border p-5 rounded-2xl shadow-sm space-y-4 h-fit">
+          <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm space-y-4 h-fit">
             <h3 className="text-sm font-bold text-slate-800 uppercase flex items-center gap-1">
               ⚙ Clinic Configuration Settings
             </h3>
@@ -1917,7 +1978,7 @@ export function ManagerDashboard({
           </div>
 
           {/* Marketing Promotions Registry */}
-          <div className="bg-white border p-5 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase">
               🎯 Autumn Vaccine Drive &amp; Discount Promotions
             </h3>
@@ -2002,100 +2063,112 @@ export function FinanceDashboard({
   onMarkInvoicePaid
 }: FinanceDashboardProps) {
 
-  // Sum split payouts
-  const payoutByStaff = allStaff.reduce((acc, st) => {
-    const staffAmt = splits
-      .filter(s => s.staffId === st.id)
-      .reduce((sum, item) => sum + item.splitAmount, 0);
-    acc[st.id] = staffAmt;
-    return acc;
-  }, {} as Record<string, number>);
+  // Clinic Operations Statistics
+  const activeInpatients = pets.filter(p => p.status === 'Overnight Stay');
+  const activeSurgeries = pets.filter(p => p.status === 'In Surgery');
+  const clinicalQueue = pets.filter(p => p.status === 'Checked In' || p.status === 'In Treatment');
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6" id="finance-clinic-focus-dashboard">
       
-      {/* Invoices grid */}
-      <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold text-[#0d1c2e] uppercase tracking-wide flex items-center gap-2">
-          🧾 Invoices and billing folders
-        </h3>
-
-        <div className="space-y-3">
-          {invoices.map((inv) => {
-            const client = clients.find(c => c.id === inv.clientId);
-            return (
-              <div key={inv.id} className="p-4 bg-gradient-to-r from-[#eff4ff]/20 to-white border border-outline-variant/50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-xs font-bold text-[#0d1c2e]" id={`invoice-${inv.id}`}>
-                    Billing Fold {inv.id.toUpperCase()} • <span className="font-mono">${inv.total.toFixed(2)}</span>
-                  </h4>
-                  <p className="text-[10px] text-[#545d62] font-semibold mt-0.5">
-                    Client: {client?.name} • Due: {inv.dueDate}
-                  </p>
-                  
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {inv.items.map((item) => (
-                      <span key={item.id} className="text-[8px] bg-slate-100 px-1.5 py-0.5 text-[#545d62] font-semibold rounded">
-                        {item.description} (${item.amount})
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
-                    inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-50 text-red-800 border border-red-200'
-                  }`}>
-                    {inv.status}
-                  </span>
-
-                  {inv.status !== 'PAID' && (
-                    <button
-                      type="button"
-                      onClick={() => onMarkInvoicePaid(inv.id)}
-                      className="px-3 py-1.5 bg-primary text-on-primary text-[10px] font-bold rounded-lg hover:bg-primary-container active:scale-95 transition-all text-center cursor-pointer shadow-xs whitespace-nowrap"
-                    >
-                      Receive Payment
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {/* Central Announcement Banner */}
+      <div className="bg-gradient-to-r from-teal-50 to-indigo-50 border border-teal-150/40 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            📂 Unified Ledgers &amp; Accounts Centralized
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-2xl">
+            In compliance with clinic audit protocols, all billing files, client transaction ledgers, invoice folders, and surgeon commission division ledgers have been consolidated under the <strong>Reports</strong> page on the sidebar navigation.
+          </p>
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          <span className="text-xs bg-teal-100 text-teal-800 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-ping" /> Clinically Synced
+          </span>
         </div>
       </div>
 
-      {/* Split Payout statistics */}
-      <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold text-[#0d1c2e] uppercase tracking-wide">
-          💸 Staff Division Ledger Summary
-        </h3>
-        <p className="text-[10px] text-[#545d62] leading-relaxed">
-          Accrued financial bonuses computed from surgical or lab participation:
-        </p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Active clinical flows */}
+        <div className="lg:col-span-2 bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
+          <h3 className="text-sm font-bold text-[#0d1c2e] uppercase tracking-wide flex items-center gap-2 border-b pb-3">
+            🏥 Clinic Operations &amp; Patient Stream
+          </h3>
 
-        <div className="space-y-3">
-          {allStaff.map((st) => {
-            const sum = payoutByStaff[st.id] || 0;
-            return (
-              <div key={st.id} className="flex items-center justify-between py-2 border-b last:border-none border-outline-variant/30">
-                <div className="flex items-center gap-2">
-                  <img
-                    src={st.avatar}
-                    alt={st.name}
-                    referrerPolicy="no-referrer"
-                    className="w-7 h-7 rounded-full object-cover border"
-                  />
-                  <div>
-                    <h4 className="text-xs font-bold text-[#0d1c2e]">{st.name.replace('Dr. ', '')}</h4>
-                    <span className="text-[8px] text-slate-500 font-mono font-bold leading-none">{st.role}</span>
+          <div className="space-y-3">
+            {pets.filter(p => p.status !== 'Discharged').length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center">No active hospital flows to display.</p>
+            ) : (
+              pets.filter(p => p.status !== 'Discharged').map((p) => {
+                const client = clients.find(c => c.id === p.ownerId);
+                return (
+                  <div key={p.id} className="p-4 bg-gradient-to-r from-[#eff4ff]/20 to-white border border-outline-variant/50 rounded-xl flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-[#0d1c2e]" id={`pet-stream-${p.id}`}>
+                        {p.name} • <span className="text-slate-550 text-[10px] uppercase font-mono font-bold">{p.species} ({p.breed})</span>
+                      </h4>
+                      <p className="text-[10px] text-[#545d62] font-semibold mt-0.5">
+                        Responsible Client: {client?.name} • Weight: {p.weight} kg
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {p.alertAllergies.map((alg) => (
+                          <span key={alg} className="text-[8px] bg-rose-50 text-rose-700 px-1.5 py-0.5 font-bold rounded uppercase">
+                            ⚠️ Allergy: {alg}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded uppercase ${
+                        p.status === 'In Surgery' ? 'bg-indigo-100 text-indigo-800 animate-pulse' :
+                        p.status === 'In Treatment' ? 'bg-sky-100 text-sky-800' :
+                        p.status === 'Overnight Stay' ? 'bg-violet-100 text-violet-850' : 'bg-amber-50 text-amber-800'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <span className="text-xs font-bold font-mono text-emerald-800">${sum.toFixed(2)}</span>
-              </div>
-            );
-          })}
+                );
+              })
+            )}
+          </div>
         </div>
+
+        {/* Clinical Case Summary panel */}
+        <div className="bg-white border border-outline-variant/60 rounded-xl p-5 shadow-xs space-y-4">
+          <h3 className="text-sm font-bold text-[#0d1c2e] uppercase tracking-wide border-b pb-3">
+            📊 Clinician Case Loads
+          </h3>
+          
+          <div className="space-y-4">
+            <div className="p-3.5 bg-slate-50 border rounded-xl space-y-1">
+              <span className="text-[9.5px] font-bold text-slate-400 uppercase font-mono block">In-Surgery Cases</span>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black font-sans text-indigo-700">{activeSurgeries.length}</span>
+                <span className="text-[10px] font-semibold text-slate-500">Active surgical rooms</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border rounded-xl space-y-1">
+              <span className="text-[9.5px] font-bold text-slate-400 uppercase font-mono block">Hospital Ward Overnight Inpatients</span>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black font-sans text-sky-700">{activeInpatients.length}</span>
+                <span className="text-[10px] font-semibold text-slate-500">Intensive support stays</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border rounded-xl space-y-1">
+              <span className="text-[9.5px] font-bold text-slate-400 uppercase font-mono block">General Care Queue</span>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black font-sans text-amber-700">{clinicalQueue.length}</span>
+                <span className="text-[10px] font-semibold text-slate-500">Active exams &amp; vitals</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>

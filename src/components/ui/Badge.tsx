@@ -10,7 +10,7 @@ export interface BadgeProps {
   variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'gray';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
-  dot?: boolean; // 显示左侧小圆点
+  dot?: boolean; // Show small dot indicator
 }
 
 export default function Badge({
@@ -70,8 +70,8 @@ export default function Badge({
 }
 
 /**
- * 辅助函数：根据 AppointmentStatus 返回对应的 badge variant
- * 映射:
+ * Helper function: returns variant mapping
+ * mapping:
  * PENDING → warning
  * CONFIRMED → info
  * CHECKED_IN → info (blue)

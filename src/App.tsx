@@ -120,18 +120,18 @@ const generateSvgAvatarBase64 = (bgGradient: { from: string, to: string }, iconN
 
 export default function App() {
   // Core Application Database State
-  const [staffList, setStaffList] = useState<Staff[]>(INITIAL_STAFF);
-  const [clientList, setClientList] = useState<Client[]>(INITIAL_CLIENTS);
-  const [petList, setPetList] = useState<Pet[]>(INITIAL_PETS);
-  const [appointmentList, setAppointmentList] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [medicalRecordList, setMedicalRecordList] = useState<MedicalRecord[]>(INITIAL_MEDICAL_RECORDS);
-  const [invoiceList, setInvoiceList] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [splitList, setSplitList] = useState<RevenueSplit[]>(INITIAL_REVENUE_SPLITS);
-  const [consultationList, setConsultationList] = useState<Consultation[]>(INITIAL_CONSULTATIONS);
-  const [labOrderList, setLabOrderList] = useState<LabOrder[]>(INITIAL_LAB_ORDERS);
+  const [staffList, _setStaffList] = useState<Staff[]>(INITIAL_STAFF);
+  const [clientList, _setClientList] = useState<Client[]>(INITIAL_CLIENTS);
+  const [petList, _setPetList] = useState<Pet[]>(INITIAL_PETS);
+  const [appointmentList, _setAppointmentList] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [medicalRecordList, _setMedicalRecordList] = useState<MedicalRecord[]>(INITIAL_MEDICAL_RECORDS);
+  const [invoiceList, _setInvoiceList] = useState<Invoice[]>(INITIAL_INVOICES);
+  const [splitList, _setSplitList] = useState<RevenueSplit[]>(INITIAL_REVENUE_SPLITS);
+  const [consultationList, _setConsultationList] = useState<Consultation[]>(INITIAL_CONSULTATIONS);
+  const [labOrderList, _setLabOrderList] = useState<LabOrder[]>(INITIAL_LAB_ORDERS);
 
   // REAL-LIFE VET HOSPITAL OPERATIONS STATES
-  const [treatmentPrices, setTreatmentPrices] = useState([
+  const [treatmentPrices, _setTreatmentPrices] = useState([
     { id: 'tx-1', name: 'Annual Wellness Exam', price: 65.00 },
     { id: 'tx-2', name: 'Dental Scale & Polish', price: 250.00 },
     { id: 'tx-3', name: 'Blood Panel & CBC Test', price: 120.00 },
@@ -141,7 +141,7 @@ export default function App() {
     { id: 'tx-7', name: 'Soft Tissue Surgical Suture', price: 380.00 },
   ]);
 
-  const [medicationPrices, setMedicationPrices] = useState([
+  const [medicationPrices, _setMedicationPrices] = useState([
     { id: 'med-1', name: 'Apoquel 16mg', price: 45.00, stock: 48, minStock: 20 },
     { id: 'med-2', name: 'Clavamox 250mg', price: 35.00, stock: 18, minStock: 15 },
     { id: 'med-3', name: 'Heartgard Plus Chewable', price: 68.00, stock: 8, minStock: 10 }, // Below minStock!
@@ -149,89 +149,319 @@ export default function App() {
     { id: 'med-5', name: 'Gabapentin 100mg Capsules', price: 22.00, stock: 11, minStock: 10 },
   ]);
 
-  const [overnightTasks, setOvernightTasks] = useState([
+  const [overnightTasks, _setOvernightTasks] = useState([
     { id: 't-1', petId: 'pet-1', task: 'Administer Carprofen 100mg Tablet', assignedTo: 'staff-tech-1', time: '08:00 PM', done: false },
     { id: 't-2', petId: 'pet-1', task: 'Check vitals and temperature', assignedTo: 'staff-tech-1', time: '10:00 PM', done: true },
     { id: 't-3', petId: 'pet-2', task: 'Pre-surgery fasting verification check', assignedTo: 'staff-tech-1', time: '06:00 AM', done: false },
     { id: 't-4', petId: 'pet-3', task: 'Administer IV hydrating fluids', assignedTo: 'staff-tech-1', time: '12:00 AM', done: false },
   ]);
 
-  const [supplierOrders, setSupplierOrders] = useState([
+  const [supplierOrders, _setSupplierOrders] = useState([
     { id: 'so-1', supplier: 'Zoetis Vet Supply Global', drugName: 'Apoquel 16mg', qty: 50, status: 'Completed', date: '2026-05-10', cost: 1250.00 },
     { id: 'so-2', supplier: 'Boehringer Ingelheim LLC', drugName: 'Heartgard Plus Chewable', qty: 100, status: 'Pending Approval', date: '2026-05-20', cost: 4200.00 }
   ]);
 
-  const [clinicHours, setClinicHours] = useState('08:00 AM - 08:00 PM');
-  const [promotions, setPromotions] = useState([
+  const [clinicHours, _setClinicHours] = useState('08:00 AM - 08:00 PM');
+  const [promotions, _setPromotions] = useState([
     { id: 'p-1', name: 'Autumn Vaccine Drive Discount', description: '20% off Rabies & DHPP combos during September', code: 'FALLVACS20', active: true },
     { id: 'p-2', name: 'Dental Awareness Month Drive', description: 'Scale & polish includes complimentary dental kit', code: 'DENTALSMILE', active: true },
   ]);
 
-  // Clinic Settings Persistence & State
-  const [clinicInfo, setClinicInfo] = useState(() => {
-    const saved = localStorage.getItem('vet_clinic_info');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      name: 'Clinical Vitality',
-      slogan: 'VETERINARY CARE',
-      logoType: 'PawPrint',
-      logoUrl: '',
-      email: 'contact@clinicalvitality.org',
-      phone: '(555) 234-5678',
-      address: '120 Medical Center Parkway, Suite 400',
-      website: 'www.clinicalvitality.org',
-    };
+  const [clinicInfo, _setClinicInfo] = useState({
+    name: 'Clinical Vitality',
+    slogan: 'VETERINARY CARE',
+    logoType: 'PawPrint',
+    logoUrl: '',
+    email: 'contact@clinicalvitality.org',
+    phone: '(555) 234-5678',
+    address: '120 Medical Center Parkway, Suite 400',
+    website: 'www.clinicalvitality.org',
   });
 
-  const [weeklyHours, setWeeklyHours] = useState(() => {
-    const saved = localStorage.getItem('vet_weekly_hours');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      Mon: { open: '08:00 AM', close: '08:00 PM', closed: false },
-      Tue: { open: '08:00 AM', close: '08:00 PM', closed: false },
-      Wed: { open: '08:00 AM', close: '08:00 PM', closed: false },
-      Thu: { open: '08:00 AM', close: '08:00 PM', closed: false },
-      Fri: { open: '08:00 AM', close: '08:00 PM', closed: false },
-      Sat: { open: '09:00 AM', close: '05:00 PM', closed: false },
-      Sun: { open: '10:00 AM', close: '04:00 PM', closed: true },
-    };
+  const [weeklyHours, _setWeeklyHours] = useState({
+    Mon: { open: '08:00 AM', close: '08:00 PM', closed: false },
+    Tue: { open: '08:00 AM', close: '08:00 PM', closed: false },
+    Wed: { open: '08:00 AM', close: '08:00 PM', closed: false },
+    Thu: { open: '08:00 AM', close: '08:00 PM', closed: false },
+    Fri: { open: '08:00 AM', close: '08:00 PM', closed: false },
+    Sat: { open: '09:00 AM', close: '05:00 PM', closed: false },
+    Sun: { open: '10:00 AM', close: '04:00 PM', closed: true },
   });
 
-  const [holidays, setHolidays] = useState(() => {
-    const saved = localStorage.getItem('vet_holidays');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      { id: 'h-1', name: 'Memorial Day', date: '2026-05-25', closedEntireDay: true },
-      { id: 'h-2', name: 'Independence Day', date: '2026-07-04', closedEntireDay: true },
-      { id: 'h-3', name: 'Labor Day', date: '2026-09-07', closedEntireDay: true },
-      { id: 'h-4', name: 'Christmas Day', date: '2026-12-25', closedEntireDay: true }
-    ];
+  const [holidays, _setHolidays] = useState([
+    { id: 'h-1', name: 'Memorial Day', date: '2026-05-25', closedEntireDay: true },
+    { id: 'h-2', name: 'Independence Day', date: '2026-07-04', closedEntireDay: true },
+    { id: 'h-3', name: 'Labor Day', date: '2026-09-07', closedEntireDay: true },
+    { id: 'h-4', name: 'Christmas Day', date: '2026-12-25', closedEntireDay: true }
+  ]);
+
+  const [systemConfigs, _setSystemConfigs] = useState({
+    speechToText: true,
+    revenueSplitting: true,
+    offlineRecovery: true,
+    weightUnit: 'Imperial'
   });
 
-  const [systemConfigs, setSystemConfigs] = useState(() => {
-    const saved = localStorage.getItem('vet_system_configs');
-    if (saved) {
+  const syncItemToDb = async (table: string, op: 'INSERT' | 'UPDATE' | 'DELETE', item: any) => {
+    try {
+      if (op === 'DELETE') {
+        await fetch(`/api/${table}/${item.id}`, { method: 'DELETE' });
+      } else if (op === 'INSERT') {
+        await fetch(`/api/${table}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+      } else if (op === 'UPDATE') {
+        await fetch(`/api/${table}/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+      }
+    } catch (err) {
+      console.error(`Error syncing table ${table} operation ${op}:`, err);
+    }
+  };
+
+  const syncListToDb = (table: string, prev: any[], next: any[]) => {
+    const prevMap = new Map(prev.map(i => [i.id, i]));
+    const nextMap = new Map(next.map(i => [i.id, i]));
+
+    next.forEach(item => {
+      const prevItem = prevMap.get(item.id);
+      if (!prevItem) {
+        syncItemToDb(table, 'INSERT', item);
+      } else if (JSON.stringify(prevItem) !== JSON.stringify(item)) {
+        syncItemToDb(table, 'UPDATE', item);
+      }
+    });
+
+    prev.forEach(item => {
+      if (!nextMap.has(item.id)) {
+        syncItemToDb(table, 'DELETE', item);
+      }
+    });
+  };
+
+  const syncSettingToDb = (key: string, value: any) => {
+    fetch(`/api/settings/${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value })
+    }).catch(err => console.error(`Error syncing setting ${key}:`, err));
+  };
+
+  // State wrappers for Core tables
+  const setStaffList = (val: React.SetStateAction<Staff[]>) => {
+    _setStaffList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('staff', prev, next);
+      return next;
+    });
+  };
+
+  const setClientList = (val: React.SetStateAction<Client[]>) => {
+    _setClientList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('clients', prev, next);
+      return next;
+    });
+  };
+
+  const setPetList = (val: React.SetStateAction<Pet[]>) => {
+    _setPetList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('pets', prev, next);
+      return next;
+    });
+  };
+
+  const setAppointmentList = (val: React.SetStateAction<Appointment[]>) => {
+    _setAppointmentList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('appointments', prev, next);
+      return next;
+    });
+  };
+
+  const setMedicalRecordList = (val: React.SetStateAction<MedicalRecord[]>) => {
+    _setMedicalRecordList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('medical-records', prev, next);
+      return next;
+    });
+  };
+
+  const setInvoiceList = (val: React.SetStateAction<Invoice[]>) => {
+    _setInvoiceList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('invoices', prev, next);
+      return next;
+    });
+  };
+
+  const setSplitList = (val: React.SetStateAction<RevenueSplit[]>) => {
+    _setSplitList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('splits', prev, next);
+      return next;
+    });
+  };
+
+  const setConsultationList = (val: React.SetStateAction<Consultation[]>) => {
+    _setConsultationList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('consultations', prev, next);
+      return next;
+    });
+  };
+
+  const setLabOrderList = (val: React.SetStateAction<LabOrder[]>) => {
+    _setLabOrderList(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncListToDb('lab-orders', prev, next);
+      return next;
+    });
+  };
+
+  // State wrappers for Settings keys
+  const setTreatmentPrices = (val: React.SetStateAction<any[]>) => {
+    _setTreatmentPrices(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('treatmentPrices', next);
+      return next;
+    });
+  };
+
+  const setMedicationPrices = (val: React.SetStateAction<any[]>) => {
+    _setMedicationPrices(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('medicationPrices', next);
+      return next;
+    });
+  };
+
+  const setOvernightTasks = (val: React.SetStateAction<any[]>) => {
+    _setOvernightTasks(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('overnightTasks', next);
+      return next;
+    });
+  };
+
+  const setSupplierOrders = (val: React.SetStateAction<any[]>) => {
+    _setSupplierOrders(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('supplierOrders', next);
+      return next;
+    });
+  };
+
+  const setClinicHours = (val: React.SetStateAction<string>) => {
+    _setClinicHours(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('clinicHours', next);
+      return next;
+    });
+  };
+
+  const setPromotions = (val: React.SetStateAction<any[]>) => {
+    _setPromotions(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('promotions', next);
+      return next;
+    });
+  };
+
+  const setClinicInfo = (val: React.SetStateAction<any>) => {
+    _setClinicInfo(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('clinicInfo', next);
+      return next;
+    });
+  };
+
+  const setWeeklyHours = (val: React.SetStateAction<any>) => {
+    _setWeeklyHours(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('weeklyHours', next);
+      return next;
+    });
+  };
+
+  const setHolidays = (val: React.SetStateAction<any[]>) => {
+    _setHolidays(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('holidays', next);
+      return next;
+    });
+  };
+
+  const setSystemConfigs = (val: React.SetStateAction<any>) => {
+    _setSystemConfigs(prev => {
+      const next = typeof val === 'function' ? (val as Function)(prev) : val;
+      syncSettingToDb('systemConfigs', next);
+      return next;
+    });
+  };
+
+  // Load initial data on mount
+  useEffect(() => {
+    async function loadData() {
       try {
-        const parsed = JSON.parse(saved);
-        if (!parsed.weightUnit) {
-          parsed.weightUnit = 'Imperial';
+        const [
+          staffData,
+          clientData,
+          petData,
+          appointmentData,
+          medicalRecordData,
+          invoiceData,
+          splitData,
+          consultationData,
+          labOrderData,
+          settingsData
+        ] = await Promise.all([
+          fetch('/api/staff').then(r => r.json()),
+          fetch('/api/clients').then(r => r.json()),
+          fetch('/api/pets').then(r => r.json()),
+          fetch('/api/appointments').then(r => r.json()),
+          fetch('/api/medical-records').then(r => r.json()),
+          fetch('/api/invoices').then(r => r.json()),
+          fetch('/api/splits').then(r => r.json()),
+          fetch('/api/consultations').then(r => r.json()),
+          fetch('/api/lab-orders').then(r => r.json()),
+          fetch('/api/settings').then(r => r.json())
+        ]);
+
+        _setStaffList(staffData);
+        _setClientList(clientData);
+        _setPetList(petData);
+        _setAppointmentList(appointmentData);
+        _setMedicalRecordList(medicalRecordData);
+        _setInvoiceList(invoiceData);
+        _setSplitList(splitData);
+        _setConsultationList(consultationData);
+        _setLabOrderList(labOrderData);
+
+        if (settingsData) {
+          if (settingsData.treatmentPrices) _setTreatmentPrices(settingsData.treatmentPrices);
+          if (settingsData.medicationPrices) _setMedicationPrices(settingsData.medicationPrices);
+          if (settingsData.overnightTasks) _setOvernightTasks(settingsData.overnightTasks);
+          if (settingsData.supplierOrders) _setSupplierOrders(settingsData.supplierOrders);
+          if (settingsData.clinicHours) _setClinicHours(settingsData.clinicHours);
+          if (settingsData.promotions) _setPromotions(settingsData.promotions);
+          if (settingsData.clinicInfo) _setClinicInfo(settingsData.clinicInfo);
+          if (settingsData.weeklyHours) _setWeeklyHours(settingsData.weeklyHours);
+          if (settingsData.holidays) _setHolidays(settingsData.holidays);
+          if (settingsData.systemConfigs) _setSystemConfigs(settingsData.systemConfigs);
         }
-        return parsed;
-      } catch (e) {}
+      } catch (err) {
+        console.error('Error fetching data from API:', err);
+      }
     }
-    return {
-      speechToText: true,
-      revenueSplitting: true,
-      offlineRecovery: true,
-      weightUnit: 'Imperial' // Default to Imperial (lb & inches)
-    };
-  });
+    loadData();
+  }, []);
 
   const [settingsSubTab, setSettingsSubTab] = useState<'info' | 'hours' | 'holidays' | 'system'>('info');
 
